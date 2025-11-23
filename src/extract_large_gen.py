@@ -81,7 +81,8 @@ def main():
     """
     # Default file path pattern: inputs/MM/file.xlsx
     # For now, we'll look for inputs/10/file.xlsx
-    default_path = Path("inputs/10/file.xlsx")
+    # Script is in src/, so we need to go up one level
+    default_path = Path("../inputs/10/file.xlsx")
     
     # Allow command line argument to override default path
     if len(sys.argv) > 1:
