@@ -27,8 +27,9 @@ gcloud services enable \
     cloudbuild.googleapis.com \
     containerregistry.googleapis.com \
     run.googleapis.com
+```
 
-4.  **Grant Required IAM Roles for Cloud Build (CRITICAL)**: To run the `./deploy.sh` script (which uses `gcloud builds submit`), your authenticated user must have permissions to create a build and upload the source code. Execute the following commands, making sure to **replace `YOUR_EMAIL_ADDRESS` and `YOUR_PROJECT_ID`** with your actual user email and project ID.
+4.  **Grant Required IAM Roles for Cloud Build (CRITICAL)**: To run the `./scripts/deploy.sh` script (which uses `gcloud builds submit`), your authenticated user must have permissions to create a build and upload the source code. Execute the following commands, making sure to **replace `YOUR_EMAIL_ADDRESS` and `YOUR_PROJECT_ID`** with your actual user email and project ID.
 
     ```bash
     # 1. Grant permission to create and manage builds
@@ -64,7 +65,7 @@ image_name: "texas-grid-reporter"
 1.  Run the deployment script:
 
 ```bash
-./deploy.sh
+./scripts/deploy.sh
 ```
 
 This script will:
@@ -76,6 +77,21 @@ This script will:
 ## Local Development
 
 To run the application locally with the production build process (simulating deployment):
+
+### Option 1: Automated Script (Recommended)
+
+We provide a helper script to automatically build and restart the Docker container:
+
+```bash
+./scripts/restart_docker_local.sh
+```
+
+This will:
+1. Stop and remove any existing container named `texas-grid-reporter`.
+2. Rebuild the Docker image.
+3. Start the new container on port 8080.
+
+### Option 2: Manual Commands
 
 1.  Build the Docker image:
     ```bash

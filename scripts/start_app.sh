@@ -23,8 +23,8 @@ echo "=================================================="
 
 # 1. Start Backend
 echo "[1/2] Starting Backend Server (FastAPI)..."
-# Navigate to project root just in case
-cd "$(dirname "$0")"
+# Navigate to project root
+cd "$(dirname "$0")/.."
 uvicorn web.backend.main:app --reload --port 8000 &
 BACKEND_PID=$!
 echo "      Backend running on http://localhost:8000"

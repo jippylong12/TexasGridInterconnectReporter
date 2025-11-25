@@ -60,6 +60,7 @@ const QuarterReport: React.FC = () => {
     const [countyDetails, setCountyDetails] = useState<CountyDetails | null>(null);
     const [loadingDetails, setLoadingDetails] = useState<boolean>(false);
     const [mapData, setMapData] = useState<CountyMapData[]>([]);
+    const [reportPeriod, setReportPeriod] = useState<string>("");
 
     // Fetch available quarters on mount
     useEffect(() => {
@@ -67,6 +68,9 @@ const QuarterReport: React.FC = () => {
             try {
                 const response = await axios.get('/api/quarters');
                 setQuarters(response.data.quarters);
+                if (response.data.report_period) {
+                    setReportPeriod(response.data.report_period);
+                }
                 if (response.data.quarters.length > 0) {
                     // Default to latest quarter? Or let user choose.
                     // Let's not auto-select to force user interaction as requested "Quarter selection"
@@ -86,27 +90,31 @@ const QuarterReport: React.FC = () => {
             return;
         }
 
-        const fetchData = async () => {
-            setLoading(true);
-            try {
-                const params = new URLSearchParams();
-                selectedQuarters.forEach(q => params.append('quarters', q));
+        const timer = setTimeout(() => {
+            const fetchData = async () => {
+                setLoading(true);
+                try {
+                    const params = new URLSearchParams();
+                    selectedQuarters.forEach(q => params.append('quarters', q));
 
-                // Fetch both quarter data and map data
-                const [quarterResponse, mapResponse] = await Promise.all([
-                    axios.get(`/api/quarter-data?${params.toString()}`),
-                    axios.get(`/api/county-map-data?${params.toString()}`)
-                ]);
+                    // Fetch both quarter data and map data
+                    const [quarterResponse, mapResponse] = await Promise.all([
+                        axios.get(`/api/quarter-data?${params.toString()}`),
+                        axios.get(`/api/county-map-data?${params.toString()}`)
+                    ]);
 
-                setData(quarterResponse.data);
-                setMapData(mapResponse.data.counties);
-            } catch (error) {
-                console.error("Error fetching quarter data:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchData();
+                    setData(quarterResponse.data);
+                    setMapData(mapResponse.data.counties);
+                } catch (error) {
+                    console.error("Error fetching quarter data:", error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            fetchData();
+        }, 1000); // 1 second delay to prevent request spamming
+
+        return () => clearTimeout(timer);
     }, [selectedQuarters]);
 
     // Fetch county details when county is selected
@@ -156,11 +164,16 @@ const QuarterReport: React.FC = () => {
                         onClick={() => navigate('/')}
                         className="flex items-center text-gray-400 hover:text-white mb-2 transition-colors"
                     >
-                        <ArrowLeft className="w-4 h-4 mr-2" /> Back to Dashboard
+                        <ArrowLeft className="w-4 h-4 mr-2" /> Homepage
                     </button>
                     <h1 className="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
                         Quarterly Report
                     </h1>
+                    {reportPeriod && (
+                        <p className="text-gray-400 text-sm mt-1">
+                            Report Period: <span className="text-gray-300 font-medium">{reportPeriod}</span>
+                        </p>
+                    )}
                 </div>
 
                 {/* Quarter Selector (Multi-select) */}
@@ -172,15 +185,21 @@ const QuarterReport: React.FC = () => {
                         {selectedQuarters.length === 0 && (
                             <span className="text-gray-500 ml-1">Select Quarters...</span>
                         )}
-                        {selectedQuarters.map(q => (
-                            <span key={q} className="px-2 py-1 bg-primary/20 text-primary text-sm rounded-md flex items-center gap-1">
-                                {q}
-                                <X
-                                    className="w-3 h-3 cursor-pointer hover:text-white"
-                                    onClick={(e) => { e.stopPropagation(); removeQuarter(q); }}
-                                />
-                            </span>
-                        ))}
+                        {selectedQuarters.length > 0 && selectedQuarters.length === quarters.length ? (
+                            <span className="text-white ml-1 font-medium">All Quarters Selected</span>
+                        ) : selectedQuarters.length > 3 ? (
+                            <span className="text-white ml-1 font-medium">{selectedQuarters.length} Quarters Selected</span>
+                        ) : (
+                            selectedQuarters.map(q => (
+                                <span key={q} className="px-2 py-1 bg-primary/20 text-primary text-sm rounded-md flex items-center gap-1">
+                                    {q}
+                                    <X
+                                        className="w-3 h-3 cursor-pointer hover:text-white"
+                                        onClick={(e) => { e.stopPropagation(); removeQuarter(q); }}
+                                    />
+                                </span>
+                            ))
+                        )}
                         <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                             <Search className="h-5 w-5 text-gray-400" />
                         </div>
@@ -188,7 +207,21 @@ const QuarterReport: React.FC = () => {
 
                     {/* Dropdown Menu */}
                     {isDropdownOpen && (
-                        <div className="absolute top-full left-0 w-full mt-2 bg-gray-800 border border-gray-700 rounded-xl shadow-xl max-h-60 overflow-y-auto z-50">
+                        <div className="absolute top-full left-0 w-full mt-2 bg-gray-800 border border-gray-700 rounded-xl shadow-xl max-h-80 overflow-y-auto z-50">
+                            <div className="sticky top-0 bg-gray-800 p-2 border-b border-gray-700 flex gap-2 z-10">
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); setSelectedQuarters([...quarters]); }}
+                                    className="flex-1 px-2 py-1.5 text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 rounded-lg transition-colors"
+                                >
+                                    Select All
+                                </button>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); setSelectedQuarters([]); }}
+                                    className="flex-1 px-2 py-1.5 text-xs font-medium bg-gray-700 text-gray-300 hover:bg-gray-600 rounded-lg transition-colors"
+                                >
+                                    Deselect All
+                                </button>
+                            </div>
                             {quarters.map(q => (
                                 <div
                                     key={q}
@@ -373,7 +406,7 @@ const QuarterReport: React.FC = () => {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+                        className="fixed inset-0 z-50 flex items-center justify-center px-4 py-12 md:p-4 bg-black/80 backdrop-blur-sm"
                         onClick={() => setSelectedCounty(null)}
                     >
                         <motion.div

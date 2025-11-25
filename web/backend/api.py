@@ -61,7 +61,19 @@ async def get_quarters():
         df = df[df['Projected COD'].notna()]
         quarters = sorted(df['Projected COD'].dt.to_period('Q').astype(str).unique())
         
-        return {"quarters": quarters}
+        # Determine report period based on file path (folder name)
+        # Assuming folder name is month number, and year is current year or 2025
+        report_period = "October 2025" # Default
+        try:
+            if input_file and input_file.parent.name.isdigit():
+                month_num = int(input_file.parent.name)
+                import calendar
+                month_name = calendar.month_name[month_num]
+                report_period = f"{month_name} 2025"
+        except:
+            pass
+
+        return {"quarters": quarters, "report_period": report_period}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

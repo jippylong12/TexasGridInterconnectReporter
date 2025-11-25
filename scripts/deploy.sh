@@ -3,6 +3,9 @@
 # Exit on error
 set -e
 
+# Navigate to project root
+cd "$(dirname "$0")/.."
+
 # Load configuration
 if [ -f "config.yaml" ]; then
     # Simple parser for yaml (assumes simple key: value format)

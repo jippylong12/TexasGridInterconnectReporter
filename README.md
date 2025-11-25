@@ -11,7 +11,7 @@ A modern, end-to-end toolkit to parse monthly ERCOT Generator Interconnection St
 ---
 
 ## ✨ What’s New
-- Unified web application (frontend + backend) with one-click startup via `start_app.sh`
+- Unified web application (frontend + backend) with one-click startup via `scripts/start_app.sh`
 - ZIP download of all generated visualizations
 - Cleaner project structure and deployment workflow
 - Deployment guide for Google Cloud Run (`README_DEPLOY.md`)
@@ -34,7 +34,7 @@ cd ../..
 
 2) Start the app
 ```bash
-./start_app.sh
+./scripts/start_app.sh
 ```
 This launches both servers:
 - Frontend: http://localhost:5173
@@ -74,7 +74,10 @@ Notes
 ## 📁 Project Structure
 ```
 TexasGridInterconnectReporter/
-├── start_app.sh                 # One-click startup (frontend + backend)
+├── scripts/                     # Shell scripts for automation
+│   ├── start_app.sh             # One-click startup (frontend + backend)
+│   ├── deploy.sh                # Build + deploy to Cloud Run
+│   └── restart_docker_local.sh  # Rebuild and restart local Docker container
 ├── web/                         # Web Application
 │   ├── backend/                 # FastAPI Backend (serves API and static files in prod)
 │   └── frontend/                # React + Vite Frontend (dev server at :5173)
@@ -86,7 +89,6 @@ TexasGridInterconnectReporter/
 ├── tests/                       # Test suite (pytest)
 ├── requirements.txt             # Python dependencies
 ├── Dockerfile                   # Container build (backend + static frontend)
-├── deploy.sh                    # Build + deploy to Cloud Run
 ├── config.yaml                  # Deploy config (project_id, region, etc.)
 ├── README_DEPLOY.md             # Detailed deployment guide for GCP Cloud Run
 └── AGENTS.md                    # Development conventions and directives
@@ -121,6 +123,10 @@ See `AGENTS.md` for conventions (PEP 8, typing, modular design).
 ## 🐳 Run with Docker (Optional)
 Build and run locally as a container:
 ```bash
+# Automated script (Recommended)
+./scripts/restart_docker_local.sh
+
+# Or manual commands:
 # Build image
 docker build -t texas-grid-reporter .
 
@@ -138,7 +144,7 @@ Use the provided script and guide.
 2) Follow prerequisites and IAM steps in `README_DEPLOY.md`
 3) Deploy
 ```bash
-./deploy.sh
+./scripts/deploy.sh
 ```
 Full details: see `README_DEPLOY.md`.
 
