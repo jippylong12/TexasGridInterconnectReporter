@@ -32,7 +32,7 @@ const Dashboard: React.FC = () => {
                     </h1>
 
                     <p className="text-xl text-gray-300 mb-10 leading-relaxed">
-                        Visualize and analyze ERCOT Generator Interconnection Status Reports with premium insights and automated reporting.
+                        Visualize and analyze ERCOT Generator Interconnection Status Reports.
                     </p>
 
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
