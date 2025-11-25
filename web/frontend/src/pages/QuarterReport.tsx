@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from 'chart.js';
 import { Pie } from 'react-chartjs-2';
 import axios from 'axios';
+import TexasCountyMap from '../components/TexasCountyMap';
 
 // Register ChartJS components
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title);
@@ -26,6 +27,13 @@ interface QuarterData {
         project_count: number;
         fuel_breakdown: string;
     }[];
+}
+
+interface CountyMapData {
+    county: string;
+    total_mw: number;
+    project_count: number;
+    fuel_summary: string;
 }
 
 interface CountyDetails {
@@ -51,6 +59,7 @@ const QuarterReport: React.FC = () => {
     const [selectedCounty, setSelectedCounty] = useState<string | null>(null);
     const [countyDetails, setCountyDetails] = useState<CountyDetails | null>(null);
     const [loadingDetails, setLoadingDetails] = useState<boolean>(false);
+    const [mapData, setMapData] = useState<CountyMapData[]>([]);
 
     // Fetch available quarters on mount
     useEffect(() => {
@@ -73,6 +82,7 @@ const QuarterReport: React.FC = () => {
     useEffect(() => {
         if (selectedQuarters.length === 0) {
             setData(null);
+            setMapData([]);
             return;
         }
 
@@ -81,8 +91,15 @@ const QuarterReport: React.FC = () => {
             try {
                 const params = new URLSearchParams();
                 selectedQuarters.forEach(q => params.append('quarters', q));
-                const response = await axios.get(`http://localhost:8000/api/quarter-data?${params.toString()}`);
-                setData(response.data);
+
+                // Fetch both quarter data and map data
+                const [quarterResponse, mapResponse] = await Promise.all([
+                    axios.get(`http://localhost:8000/api/quarter-data?${params.toString()}`),
+                    axios.get(`http://localhost:8000/api/county-map-data?${params.toString()}`)
+                ]);
+
+                setData(quarterResponse.data);
+                setMapData(mapResponse.data.counties);
             } catch (error) {
                 console.error("Error fetching quarter data:", error);
             } finally {
@@ -252,6 +269,22 @@ const QuarterReport: React.FC = () => {
                                 </p>
                             </motion.div>
                         </div>
+
+                        {/* Interactive Texas County Map */}
+                        {mapData.length > 0 && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.25 }}
+                                className="bg-gray-800 rounded-2xl p-6 border border-gray-700 shadow-lg"
+                            >
+                                <h3 className="text-lg font-semibold mb-6">Geographic Distribution</h3>
+                                <TexasCountyMap
+                                    data={mapData}
+                                    onCountyClick={(county) => setSelectedCounty(county)}
+                                />
+                            </motion.div>
+                        )}
 
                         {/* Charts Section */}
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

@@ -431,3 +431,72 @@ async def get_county_details(county: str, quarters: List[str] = Query(None)):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/county-map-data")
+async def get_county_map_data(quarters: List[str] = Query(None)):
+    """
+    Returns county-level data optimized for map visualization.
+    """
+    try:
+        # Find input file
+        input_file = INPUTS_DIR / "10" / "file.xlsx"
+        if not input_file.exists():
+             for p in INPUTS_DIR.glob("*/*.xlsx"):
+                input_file = p
+                break
+        
+        if not input_file.exists():
+             raise HTTPException(status_code=404, detail="No input Excel file found")
+
+        import pandas as pd
+        df = extract_large_gen_data(input_file)
+        
+        # Filter by quarters
+        df['Projected COD'] = pd.to_datetime(df['Projected COD'], errors='coerce')
+        df['Quarter'] = df['Projected COD'].dt.to_period('Q').astype(str)
+        
+        if quarters:
+            df_filtered = df[df['Quarter'].isin(quarters)].copy()
+        else:
+            df_filtered = df.copy()
+        
+        if len(df_filtered) == 0:
+            return {"counties": []}
+
+        # Refine Fuel Type logic
+        def refine_fuel(row):
+            fuel = normalize_fuel_type(row['Fuel'])
+            if fuel in ['Other', 'Unknown']:
+                tech = normalize_technology_type(row['Technology'])
+                if tech != 'Unknown':
+                    return tech
+            return fuel
+
+        df_filtered['Fuel_Normalized'] = df_filtered.apply(refine_fuel, axis=1)
+        
+        # Aggregate by county
+        county_groups = df_filtered.groupby('County')
+        county_map_data = []
+        
+        for county, group in county_groups:
+            total_mw = group['Capacity (MW)'].sum()
+            project_count = len(group)
+            
+            # Get top 2 fuel types for brief summary
+            fuel_mw = group.groupby('Fuel_Normalized')['Capacity (MW)'].sum().sort_values(ascending=False)
+            top_fuels = fuel_mw.head(2)
+            fuel_summary = ", ".join([f"{f}: {mw:.0f}MW" for f, mw in top_fuels.items()])
+            
+            county_map_data.append({
+                "county": county,
+                "total_mw": round(total_mw, 1),
+                "project_count": project_count,
+                "fuel_summary": fuel_summary
+            })
+        
+        return {"counties": county_map_data}
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
