@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ComposableMap, Geographies, Geography } from 'react-simple-maps';
+import { ComposableMap, Geographies, Geography, ZoomableGroup } from 'react-simple-maps';
 import { scaleLinear } from 'd3-scale';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -78,46 +78,46 @@ const TexasCountyMap: React.FC<TexasCountyMapProps> = ({ data, onCountyClick }) 
             <ComposableMap
                 projection="geoMercator"
                 projectionConfig={{
-                    scale: 1200,
-                    center: [-99, 31.5] // Center of Texas
+                    scale: 4000,
+                    center: [-99.5, 31.5]
                 }}
                 className="w-full h-full"
                 // Explicit large viewbox to ensure map visibility
                 viewBox="0 0 1000 800"
             >
-                <Geographies
-                    geography={geoUrl}
-                    parseGeographies={(geos: any) => {
-                        // Filter for Texas counties (FIPS code starts with 48)
-                        return geos.filter((geo: any) => geo.id && geo.id.toString().startsWith('48'));
-                    }}
-                >
-                    {({ geographies }: { geographies: any[] }) => {
-                        return geographies.map((geo: any) => (
-                            <Geography
-                                key={geo.rsmKey}
-                                geography={geo}
-                                fill={getCountyColor(geo)}
-                                stroke="#1f2937"
-                                strokeWidth={0.5}
-                                style={{
-                                    default: { outline: 'none' },
-                                    hover: {
-                                        fill: getCountyColor(geo),
-                                        opacity: 0.8,
-                                        outline: 'none',
-                                        cursor: 'pointer'
-                                    },
-                                    pressed: { outline: 'none' }
-                                }}
-                                onMouseEnter={(event: React.MouseEvent) => handleCountyMouseEnter(geo, event)}
-                                onMouseMove={(event: React.MouseEvent) => handleCountyMouseMove(event)}
-                                onMouseLeave={handleCountyMouseLeave}
-                                onClick={() => handleCountyClick(geo)}
-                            />
-                        ));
-                    }}
-                </Geographies>
+                <ZoomableGroup center={[-100, 31]} zoom={1} minZoom={0.8} maxZoom={4}>
+                    <Geographies
+                        geography={geoUrl}
+                    >
+                        {({ geographies }: { geographies: any[] }) => {
+                            // Filter for Texas counties (FIPS code starts with 48)
+                            const texasGeos = geographies.filter((geo: any) => geo.id && geo.id.toString().startsWith('48'));
+                            return texasGeos.map((geo: any) => (
+                                <Geography
+                                    key={geo.rsmKey}
+                                    geography={geo}
+                                    fill={getCountyColor(geo)}
+                                    stroke="#1f2937"
+                                    strokeWidth={0.5}
+                                    style={{
+                                        default: { outline: 'none' },
+                                        hover: {
+                                            fill: getCountyColor(geo),
+                                            opacity: 0.8,
+                                            outline: 'none',
+                                            cursor: 'pointer'
+                                        },
+                                        pressed: { outline: 'none' }
+                                    }}
+                                    onMouseEnter={(event: React.MouseEvent) => handleCountyMouseEnter(geo, event)}
+                                    onMouseMove={(event: React.MouseEvent) => handleCountyMouseMove(event)}
+                                    onMouseLeave={handleCountyMouseLeave}
+                                    onClick={() => handleCountyClick(geo)}
+                                />
+                            ));
+                        }}
+                    </Geographies>
+                </ZoomableGroup>
             </ComposableMap>
 
 
