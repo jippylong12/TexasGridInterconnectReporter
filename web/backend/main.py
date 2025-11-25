@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # Add project root to path to allow importing from src
 project_root = Path(__file__).parent.parent.parent
 sys.path.append(str(project_root))
+sys.path.append(str(project_root / "src"))
 
 from web.backend.api import router
 
