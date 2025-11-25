@@ -65,7 +65,7 @@ const QuarterReport: React.FC = () => {
     useEffect(() => {
         const fetchQuarters = async () => {
             try {
-                const response = await axios.get('http://localhost:8000/api/quarters');
+                const response = await axios.get('/api/quarters');
                 setQuarters(response.data.quarters);
                 if (response.data.quarters.length > 0) {
                     // Default to latest quarter? Or let user choose.
@@ -94,8 +94,8 @@ const QuarterReport: React.FC = () => {
 
                 // Fetch both quarter data and map data
                 const [quarterResponse, mapResponse] = await Promise.all([
-                    axios.get(`http://localhost:8000/api/quarter-data?${params.toString()}`),
-                    axios.get(`http://localhost:8000/api/county-map-data?${params.toString()}`)
+                    axios.get(`/api/quarter-data?${params.toString()}`),
+                    axios.get(`/api/county-map-data?${params.toString()}`)
                 ]);
 
                 setData(quarterResponse.data);
@@ -119,7 +119,7 @@ const QuarterReport: React.FC = () => {
                 const params = new URLSearchParams();
                 params.append('county', selectedCounty);
                 selectedQuarters.forEach(q => params.append('quarters', q));
-                const response = await axios.get(`http://localhost:8000/api/county-details?${params.toString()}`);
+                const response = await axios.get(`/api/county-details?${params.toString()}`);
                 setCountyDetails(response.data);
             } catch (error) {
                 console.error("Error fetching county details:", error);

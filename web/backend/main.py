@@ -38,6 +38,8 @@ frontend_dir = project_root / "web" / "frontend" / "dist"
 
 if frontend_dir.exists():
     app.mount("/assets", StaticFiles(directory=str(frontend_dir / "assets")), name="assets")
+    if (frontend_dir / "data").exists():
+        app.mount("/data", StaticFiles(directory=str(frontend_dir / "data")), name="data")
     
     @app.get("/{full_path:path}")
     async def serve_react_app(full_path: str):

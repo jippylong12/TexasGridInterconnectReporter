@@ -36,6 +36,36 @@ from pydantic import BaseModel
 
 
 
+@router.get("/quarters")
+async def get_quarters():
+    """
+    Returns a list of available quarters from the dataset.
+    """
+    try:
+        # Find input file (reuse logic from generate_reports or extract to helper)
+        input_file = INPUTS_DIR / "10" / "file.xlsx"
+        print(f"Checking for input file at: {input_file}")
+        if not input_file.exists():
+             for p in INPUTS_DIR.glob("*/*.xlsx"):
+                input_file = p
+                break
+        
+        if not input_file.exists():
+             raise HTTPException(status_code=404, detail="No input Excel file found")
+
+        import pandas as pd
+        df = extract_large_gen_data(input_file)
+        
+        # Extract quarters
+        df['Projected COD'] = pd.to_datetime(df['Projected COD'], errors='coerce')
+        df = df[df['Projected COD'].notna()]
+        quarters = sorted(df['Projected COD'].dt.to_period('Q').astype(str).unique())
+        
+        return {"quarters": quarters}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/quarter-data")
 async def get_quarter_data(quarters: List[str] = Query(None)):
     """
