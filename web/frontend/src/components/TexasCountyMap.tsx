@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { ComposableMap, Geographies, Geography } from 'react-simple-maps';
 import { scaleLinear } from 'd3-scale';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -18,8 +18,9 @@ interface TexasCountyMapProps {
 const TexasCountyMap: React.FC<TexasCountyMapProps> = ({ data, onCountyClick }) => {
     const [hoveredCounty, setHoveredCounty] = useState<CountyData | null>(null);
     const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
-    const [geoData, setGeoData] = useState<any>(null);
-    const [mapError, setMapError] = useState<string | null>(null);
+
+    // Use URL directly - react-simple-maps handles TopoJSON conversion
+    const geoUrl = "/data/counties-10m.json";
 
     // Create a map of county name to data
     const countyDataMap = new Map(
@@ -32,29 +33,6 @@ const TexasCountyMap: React.FC<TexasCountyMapProps> = ({ data, onCountyClick }) 
         .domain([0, maxMW / 2, maxMW])
         .range(['#10b981', '#fbbf24', '#ef4444']); // green -> yellow -> red
 
-    useEffect(() => {
-        fetch("/data/counties-10m.json")
-            .then(response => {
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                return response.json();
-            })
-            .then(topoJsonData => {
-                // Check if 'counties' object exists
-                if (topoJsonData.objects && topoJsonData.objects.counties) {
-                    // Convert TopoJSON to GeoJSON features
-                    // We need to import 'feature' from 'topojson-client' but we don't have it installed.
-                    // react-simple-maps handles this internally if we pass the URL or the object.
-                    // Let's try passing the object directly to Geographies first.
-                    setGeoData(topoJsonData);
-                } else {
-                    setMapError("Invalid TopoJSON format: missing 'counties' object");
-                }
-            })
-            .catch(err => {
-                console.error("Failed to load map data", err);
-                setMapError(`Failed to load map data: ${err.message}`);
-            });
-    }, []);
 
     const getCountyColor = (geo: any): string => {
         const countyName = geo.properties.name?.toUpperCase();
@@ -94,59 +72,54 @@ const TexasCountyMap: React.FC<TexasCountyMapProps> = ({ data, onCountyClick }) 
         }
     };
 
-    if (mapError) {
-        return <div className="text-red-500 p-4">Error: {mapError}</div>;
-    }
 
     return (
-        <div className="relative w-full h-[500px] bg-gray-900/30 rounded-2xl overflow-hidden flex flex-col">
-            {/* Debug Info (Temporary) */}
-            {/* <div className="text-xs text-gray-500 p-2 absolute top-0 left-0 z-10">{debugInfo}</div> */}
-
-            {geoData && (
-                <ComposableMap
-                    projection="geoAlbers"
-                    projectionConfig={{
-                        scale: 2500,
-                        center: [-99, 31.5],
+        <div className="w-full h-[600px] bg-gray-100 rounded-xl overflow-hidden border border-gray-200 relative">
+            <ComposableMap
+                projection="geoMercator"
+                projectionConfig={{
+                    scale: 1200,
+                    center: [-99, 31.5] // Center of Texas
+                }}
+                className="w-full h-full"
+                // Explicit large viewbox to ensure map visibility
+                viewBox="0 0 1000 800"
+            >
+                <Geographies
+                    geography={geoUrl}
+                    parseGeographies={(geos: any) => {
+                        // Filter for Texas counties (FIPS code starts with 48)
+                        return geos.filter((geo: any) => geo.id && geo.id.toString().startsWith('48'));
                     }}
-                    className="w-full h-full"
                 >
-                    <Geographies geography={geoData}>
-                        {({ geographies }: { geographies: any[] }) => {
-                            // Filter for Texas counties (FIPS code starts with 48)
-                            const texasCounties = geographies.filter((geo: any) => geo.id.startsWith('48'));
+                    {({ geographies }: { geographies: any[] }) => {
+                        return geographies.map((geo: any) => (
+                            <Geography
+                                key={geo.rsmKey}
+                                geography={geo}
+                                fill={getCountyColor(geo)}
+                                stroke="#1f2937"
+                                strokeWidth={0.5}
+                                style={{
+                                    default: { outline: 'none' },
+                                    hover: {
+                                        fill: getCountyColor(geo),
+                                        opacity: 0.8,
+                                        outline: 'none',
+                                        cursor: 'pointer'
+                                    },
+                                    pressed: { outline: 'none' }
+                                }}
+                                onMouseEnter={(event: React.MouseEvent) => handleCountyMouseEnter(geo, event)}
+                                onMouseMove={(event: React.MouseEvent) => handleCountyMouseMove(event)}
+                                onMouseLeave={handleCountyMouseLeave}
+                                onClick={() => handleCountyClick(geo)}
+                            />
+                        ));
+                    }}
+                </Geographies>
+            </ComposableMap>
 
-                            // If we have no counties, render nothing (or maybe render all to see what's wrong?)
-                            if (texasCounties.length === 0) return null;
-
-                            return texasCounties.map((geo: any) => (
-                                <Geography
-                                    key={geo.rsmKey}
-                                    geography={geo}
-                                    fill={getCountyColor(geo)}
-                                    stroke="#1f2937"
-                                    strokeWidth={0.5}
-                                    style={{
-                                        default: { outline: 'none' },
-                                        hover: {
-                                            fill: getCountyColor(geo),
-                                            opacity: 0.8,
-                                            outline: 'none',
-                                            cursor: 'pointer'
-                                        },
-                                        pressed: { outline: 'none' }
-                                    }}
-                                    onMouseEnter={(event: React.MouseEvent) => handleCountyMouseEnter(geo, event)}
-                                    onMouseMove={(event: React.MouseEvent) => handleCountyMouseMove(event)}
-                                    onMouseLeave={handleCountyMouseLeave}
-                                    onClick={() => handleCountyClick(geo)}
-                                />
-                            ));
-                        }}
-                    </Geographies>
-                </ComposableMap>
-            )}
 
             {/* Tooltip */}
             <AnimatePresence>

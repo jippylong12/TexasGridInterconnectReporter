@@ -270,6 +270,7 @@ const QuarterReport: React.FC = () => {
                             </motion.div>
                         </div>
 
+
                         {/* Interactive Texas County Map */}
                         {mapData.length > 0 && (
                             <motion.div
@@ -285,6 +286,7 @@ const QuarterReport: React.FC = () => {
                                 />
                             </motion.div>
                         )}
+
 
                         {/* Charts Section */}
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
