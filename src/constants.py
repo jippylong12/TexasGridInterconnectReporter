@@ -21,6 +21,24 @@ FUEL_TYPES = {
     'WIN': 'Wind'
 }
 
+# Fuel Type Colors
+# Consistent colors for visualization
+FUEL_COLORS = {
+    'Solar': '#FFD700',      # Gold/Yellow
+    'Water': '#00008B',      # Dark Blue
+    'Wind': '#87CEEB',       # Sky Blue
+    'Gas': '#A9A9A9',        # Dark Gray
+    'Coal': '#000000',       # Black
+    'Nuclear': '#32CD32',    # Lime Green
+    'Biomass': '#8B4513',    # Saddle Brown
+    'Fuel Oil': '#800000',   # Maroon
+    'Petcoke': '#696969',    # Dim Gray
+    'Geothermal': '#FF4500', # Orange Red
+    'Hydrogen': '#E0FFFF',   # Light Cyan
+    'Other': '#D3D3D3',      # Light Gray
+    'Unknown': '#F5F5F5'     # White Smoke
+}
+
 # Technology Type Acronyms
 # Source: ERCOT Generator Interconnection and Modeling (GIM) Reports
 TECHNOLOGY_TYPES = {

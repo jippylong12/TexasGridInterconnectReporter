@@ -23,7 +23,7 @@ def generate_county_fuel_report(df: pd.DataFrame, output_dir: Path, quarters: li
         output_dir: Directory to save the output chart
         quarters: Optional list of quarters to filter by (e.g. ['2024Q1', '2024Q2'])
     """
-    from constants import normalize_fuel_type
+    from constants import normalize_fuel_type, FUEL_COLORS
     
     print("\n" + "=" * 80)
     print("REPORT 5: County + Fuel Type MW Breakdown")
@@ -66,7 +66,10 @@ def generate_county_fuel_report(df: pd.DataFrame, output_dir: Path, quarters: li
     # Create stacked horizontal bar chart
     fig, ax = plt.subplots(figsize=(14, max(10, len(pivot_data) * 0.4)))
     
-    pivot_data.plot(kind='barh', stacked=True, ax=ax, width=0.8, colormap='tab20')
+    # Map colors to columns
+    colors = [FUEL_COLORS.get(col, '#D3D3D3') for col in pivot_data.columns]
+    
+    pivot_data.plot(kind='barh', stacked=True, ax=ax, width=0.8, color=colors)
     
     ax.set_xlabel('Total Capacity (MW)', fontsize=12, fontweight='bold')
     ax.set_ylabel('County', fontsize=12, fontweight='bold')
@@ -203,7 +206,7 @@ def generate_fuel_type_report(df: pd.DataFrame, output_dir: Path) -> None:
         df: DataFrame containing the Large Gen project details
         output_dir: Directory to save the output chart
     """
-    from constants import normalize_fuel_type
+    from constants import normalize_fuel_type, FUEL_COLORS
     
     print("\n" + "=" * 80)
     print("REPORT 3: Fuel Type Breakdown")
@@ -236,7 +239,8 @@ def generate_fuel_type_report(df: pd.DataFrame, output_dir: Path) -> None:
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8))
     
     # Pie chart for MW distribution
-    colors = plt.cm.Set3(range(len(fuel_mw)))
+    # Use custom colors
+    colors = [FUEL_COLORS.get(fuel, '#D3D3D3') for fuel in fuel_mw.index]
     wedges, texts, autotexts = ax1.pie(fuel_mw.values, labels=fuel_mw.index, autopct='%1.1f%%',
                                          colors=colors, startangle=90, textprops={'fontsize': 10})
     
