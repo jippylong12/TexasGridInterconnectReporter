@@ -419,14 +419,20 @@ const QuarterReport: React.FC = () => {
                             {/* Modal Header */}
                             <div className="p-6 border-b border-gray-800 flex justify-between items-center bg-gray-800/50">
                                 <div>
-                                    <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                                        {selectedCounty} County
-                                        <div className="flex gap-2">
-                                            {selectedQuarters.map(q => (
-                                                <span key={q} className="text-sm font-normal px-3 py-1 bg-primary/20 text-primary rounded-full border border-primary/20">
-                                                    {q}
+                                    <h2 className="text-2xl font-bold text-white flex flex-col md:flex-row md:items-center gap-3">
+                                        <span>{selectedCounty} County</span>
+                                        <div className="flex flex-wrap gap-2">
+                                            {selectedQuarters.length > 0 && selectedQuarters.length === quarters.length ? (
+                                                <span className="text-sm font-normal px-3 py-1 bg-primary/20 text-primary rounded-full border border-primary/20">
+                                                    All Quarters Selected
                                                 </span>
-                                            ))}
+                                            ) : (
+                                                selectedQuarters.map(q => (
+                                                    <span key={q} className="text-sm font-normal px-3 py-1 bg-primary/20 text-primary rounded-full border border-primary/20">
+                                                        {q}
+                                                    </span>
+                                                ))
+                                            )}
                                         </div>
                                     </h2>
                                 </div>
