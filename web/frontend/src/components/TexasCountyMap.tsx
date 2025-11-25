@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ComposableMap, Geographies, Geography } from 'react-simple-maps';
 import { scaleLinear } from 'd3-scale';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -15,12 +15,11 @@ interface TexasCountyMapProps {
     onCountyClick: (county: string) => void;
 }
 
-// Texas counties GeoJSON URL (using public data)
-const TEXAS_TOPO_JSON = "https://cdn.jsdelivr.net/npm/us-atlas@3/counties-10m.json";
-
 const TexasCountyMap: React.FC<TexasCountyMapProps> = ({ data, onCountyClick }) => {
     const [hoveredCounty, setHoveredCounty] = useState<CountyData | null>(null);
     const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+    const [geoData, setGeoData] = useState<any>(null);
+    const [mapError, setMapError] = useState<string | null>(null);
 
     // Create a map of county name to data
     const countyDataMap = new Map(
@@ -32,6 +31,30 @@ const TexasCountyMap: React.FC<TexasCountyMapProps> = ({ data, onCountyClick }) 
     const colorScale = scaleLinear<string>()
         .domain([0, maxMW / 2, maxMW])
         .range(['#10b981', '#fbbf24', '#ef4444']); // green -> yellow -> red
+
+    useEffect(() => {
+        fetch("/data/counties-10m.json")
+            .then(response => {
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                return response.json();
+            })
+            .then(topoJsonData => {
+                // Check if 'counties' object exists
+                if (topoJsonData.objects && topoJsonData.objects.counties) {
+                    // Convert TopoJSON to GeoJSON features
+                    // We need to import 'feature' from 'topojson-client' but we don't have it installed.
+                    // react-simple-maps handles this internally if we pass the URL or the object.
+                    // Let's try passing the object directly to Geographies first.
+                    setGeoData(topoJsonData);
+                } else {
+                    setMapError("Invalid TopoJSON format: missing 'counties' object");
+                }
+            })
+            .catch(err => {
+                console.error("Failed to load map data", err);
+                setMapError(`Failed to load map data: ${err.message}`);
+            });
+    }, []);
 
     const getCountyColor = (geo: any): string => {
         const countyName = geo.properties.name?.toUpperCase();
@@ -71,22 +94,33 @@ const TexasCountyMap: React.FC<TexasCountyMapProps> = ({ data, onCountyClick }) 
         }
     };
 
+    if (mapError) {
+        return <div className="text-red-500 p-4">Error: {mapError}</div>;
+    }
+
     return (
-        <div className="relative w-full">
-            <ComposableMap
-                projection="geoAlbers"
-                projectionConfig={{
-                    scale: 2500,
-                    center: [-99, 31.5],
-                }}
-                className="w-full h-auto bg-gray-900/30 rounded-2xl"
-                style={{ maxHeight: '500px' }}
-            >
-                <Geographies geography={TEXAS_TOPO_JSON}>
-                    {({ geographies }) =>
-                        geographies
-                            .filter((geo) => geo.id.startsWith('48')) // Texas FIPS code starts with 48
-                            .map((geo) => (
+        <div className="relative w-full h-[500px] bg-gray-900/30 rounded-2xl overflow-hidden flex flex-col">
+            {/* Debug Info (Temporary) */}
+            {/* <div className="text-xs text-gray-500 p-2 absolute top-0 left-0 z-10">{debugInfo}</div> */}
+
+            {geoData && (
+                <ComposableMap
+                    projection="geoAlbers"
+                    projectionConfig={{
+                        scale: 2500,
+                        center: [-99, 31.5],
+                    }}
+                    className="w-full h-full"
+                >
+                    <Geographies geography={geoData}>
+                        {({ geographies }: { geographies: any[] }) => {
+                            // Filter for Texas counties (FIPS code starts with 48)
+                            const texasCounties = geographies.filter((geo: any) => geo.id.startsWith('48'));
+
+                            // If we have no counties, render nothing (or maybe render all to see what's wrong?)
+                            if (texasCounties.length === 0) return null;
+
+                            return texasCounties.map((geo: any) => (
                                 <Geography
                                     key={geo.rsmKey}
                                     geography={geo}
@@ -103,15 +137,16 @@ const TexasCountyMap: React.FC<TexasCountyMapProps> = ({ data, onCountyClick }) 
                                         },
                                         pressed: { outline: 'none' }
                                     }}
-                                    onMouseEnter={(event) => handleCountyMouseEnter(geo, event)}
-                                    onMouseMove={handleCountyMouseMove}
+                                    onMouseEnter={(event: React.MouseEvent) => handleCountyMouseEnter(geo, event)}
+                                    onMouseMove={(event: React.MouseEvent) => handleCountyMouseMove(event)}
                                     onMouseLeave={handleCountyMouseLeave}
                                     onClick={() => handleCountyClick(geo)}
                                 />
-                            ))
-                    }
-                </Geographies>
-            </ComposableMap>
+                            ));
+                        }}
+                    </Geographies>
+                </ComposableMap>
+            )}
 
             {/* Tooltip */}
             <AnimatePresence>
@@ -141,12 +176,14 @@ const TexasCountyMap: React.FC<TexasCountyMapProps> = ({ data, onCountyClick }) 
             </AnimatePresence>
 
             {/* Legend */}
-            <div className="mt-4 flex items-center justify-center gap-4">
-                <span className="text-sm text-gray-400">Low MW</span>
-                <div className="flex h-4 w-48 rounded-full overflow-hidden border border-gray-700">
-                    <div className="flex-1" style={{ background: 'linear-gradient(to right, #10b981, #fbbf24, #ef4444)' }} />
+            <div className="absolute bottom-4 left-0 right-0 flex items-center justify-center gap-4 pointer-events-none">
+                <div className="bg-gray-900/80 backdrop-blur-sm p-2 rounded-full flex items-center gap-4 border border-gray-700">
+                    <span className="text-xs text-gray-400">Low MW</span>
+                    <div className="flex h-2 w-32 rounded-full overflow-hidden">
+                        <div className="flex-1" style={{ background: 'linear-gradient(to right, #10b981, #fbbf24, #ef4444)' }} />
+                    </div>
+                    <span className="text-xs text-gray-400">High MW</span>
                 </div>
-                <span className="text-sm text-gray-400">High MW</span>
             </div>
         </div>
     );
