@@ -83,11 +83,6 @@ async def generate_reports(request: GenerateRequest = None):
                 "func": generate_cod_quarterly_report,
                 "name": "COD Quarterly Buckets"
             },
-            "fuel": {
-                "filename": "fuel_type_breakdown.png",
-                "func": generate_fuel_type_report,
-                "name": "Fuel Type Breakdown"
-            },
             "technology": {
                 "filename": "technology_type_breakdown.png",
                 "func": generate_technology_type_report,

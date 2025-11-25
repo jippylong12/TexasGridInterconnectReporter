@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { Download, RefreshCw, ArrowLeft, ChevronDown, ChevronUp, FileBarChart, Zap, Calendar, Map } from 'lucide-react';
+import { Download, RefreshCw, ArrowLeft, ChevronDown, ChevronUp, FileBarChart, Calendar, Map } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 
@@ -23,12 +23,6 @@ const REPORTS: ReportConfig[] = [
         title: 'COD Quarterly Buckets',
         description: 'Vertical bar chart showing project count by projected COD quarter.',
         icon: <Calendar className="w-5 h-5 text-purple-500" />
-    },
-    {
-        id: 'fuel',
-        title: 'Fuel Type Breakdown',
-        description: 'Pie chart and table showing distribution by fuel type.',
-        icon: <Zap className="w-5 h-5 text-yellow-500" />
     },
     {
         id: 'technology',
@@ -155,8 +149,8 @@ const Reports: React.FC = () => {
                                                     onClick={() => generateReport(report.id)}
                                                     disabled={loadingStates[report.id]}
                                                     className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-all ${loadingStates[report.id]
-                                                            ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                                                            : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-sm'
+                                                        ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                                                        : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-sm'
                                                         }`}
                                                 >
                                                     {loadingStates[report.id] ? (
