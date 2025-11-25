@@ -102,9 +102,11 @@ const Reports: React.FC = () => {
             const response = await axios.post('http://localhost:8000/api/generate', payload);
 
             if (response.data.images && response.data.images.length > 0) {
+                // Append timestamp to bust browser cache
+                const imageUrl = `${response.data.images[0]}?t=${Date.now()}`;
                 setReportImages(prev => ({
                     ...prev,
-                    [reportId]: response.data.images[0]
+                    [reportId]: imageUrl
                 }));
             }
         } catch (err: any) {
