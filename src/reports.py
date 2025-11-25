@@ -14,6 +14,80 @@ import argparse
 from extract_large_gen import extract_large_gen_data
 
 
+def generate_county_fuel_report(df: pd.DataFrame, output_dir: Path, quarters: list = None) -> None:
+    """
+    Generate a stacked bar chart showing MW capacity by county and fuel type.
+    
+    Args:
+        df: DataFrame containing the Large Gen project details
+        output_dir: Directory to save the output chart
+        quarters: Optional list of quarters to filter by (e.g. ['2024Q1', '2024Q2'])
+    """
+    from constants import normalize_fuel_type
+    
+    print("\n" + "=" * 80)
+    print("REPORT 5: County + Fuel Type MW Breakdown")
+    print("=" * 80)
+    
+    # Filter by quarters if provided
+    df_filtered = df.copy()
+    if quarters:
+        print(f"Filtering by quarters: {', '.join(quarters)}")
+        # Ensure Projected COD is datetime
+        df_filtered['Projected COD'] = pd.to_datetime(df_filtered['Projected COD'], errors='coerce')
+        # Create quarter column
+        df_filtered['Quarter'] = df_filtered['Projected COD'].dt.to_period('Q').astype(str)
+        # Filter
+        df_filtered = df_filtered[df_filtered['Quarter'].isin(quarters)]
+        
+    if len(df_filtered) == 0:
+        print("No data found for the selected criteria.")
+        return
+
+    # Normalize fuel types
+    df_filtered['Fuel_Normalized'] = df_filtered['Fuel'].apply(normalize_fuel_type)
+    
+    # Aggregate by County and Fuel Type
+    pivot_data = df_filtered.groupby(['County', 'Fuel_Normalized'])['Capacity (MW)'].sum().unstack(fill_value=0)
+    
+    # Sort by total capacity
+    pivot_data['Total'] = pivot_data.sum(axis=1)
+    pivot_data = pivot_data.sort_values('Total', ascending=True)
+    pivot_data = pivot_data.drop('Total', axis=1)
+    
+    # Take top 20 counties if there are too many
+    if len(pivot_data) > 20:
+        print(f"Showing top 20 counties out of {len(pivot_data)}")
+        pivot_data = pivot_data.tail(20)
+        
+    print(f"\nTotal Counties in Report: {len(pivot_data)}")
+    print(f"Total MW Capacity: {pivot_data.sum().sum():.2f} MW")
+    
+    # Create stacked horizontal bar chart
+    fig, ax = plt.subplots(figsize=(14, max(10, len(pivot_data) * 0.4)))
+    
+    pivot_data.plot(kind='barh', stacked=True, ax=ax, width=0.8, colormap='tab20')
+    
+    ax.set_xlabel('Total Capacity (MW)', fontsize=12, fontweight='bold')
+    ax.set_ylabel('County', fontsize=12, fontweight='bold')
+    title = 'ERCOT Large Gen Projects - MW by County and Fuel Type'
+    if quarters:
+        title += f"\n(Quarters: {', '.join(quarters)})"
+    ax.set_title(title, fontsize=14, fontweight='bold', pad=20)
+    
+    # Legend
+    ax.legend(title='Fuel Type', bbox_to_anchor=(1.05, 1), loc='upper left')
+    
+    ax.grid(axis='x', alpha=0.3, linestyle='--')
+    plt.tight_layout()
+    
+    # Save the chart
+    output_path = output_dir / 'county_fuel_breakdown.png'
+    plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    print(f"\n✓ Chart saved to: {output_path}")
+    plt.close()
+
+
 def generate_county_report(df: pd.DataFrame, output_dir: Path) -> None:
     """
     Generate a horizontal bar chart showing total MW capacity by county.

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Download, RefreshCw, ArrowLeft, ChevronDown, ChevronUp, FileBarChart, Calendar, Map } from 'lucide-react';
+import { Download, RefreshCw, ArrowLeft, ChevronDown, ChevronUp, FileBarChart, Calendar, Map, Filter } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 
@@ -9,6 +9,7 @@ interface ReportConfig {
     title: string;
     description: string;
     icon: React.ReactNode;
+    hasFilters?: boolean;
 }
 
 const REPORTS: ReportConfig[] = [
@@ -29,6 +30,13 @@ const REPORTS: ReportConfig[] = [
         title: 'Technology Type Breakdown',
         description: 'Pie chart and table showing distribution by technology type.',
         icon: <FileBarChart className="w-5 h-5 text-green-500" />
+    },
+    {
+        id: 'county_fuel',
+        title: 'County + Fuel Type MW Breakdown',
+        description: 'Stacked bar chart showing MW capacity by county and fuel type, with optional quarter filtering.',
+        icon: <Filter className="w-5 h-5 text-orange-500" />,
+        hasFilters: true
     }
 ];
 
@@ -45,8 +53,36 @@ const Reports: React.FC = () => {
     // State to track errors
     const [errors, setErrors] = useState<Record<string, string>>({});
 
+    // State for quarters
+    const [availableQuarters, setAvailableQuarters] = useState<string[]>([]);
+    const [selectedQuarters, setSelectedQuarters] = useState<string[]>([]);
+    const [quartersLoading, setQuartersLoading] = useState(false);
+
+    useEffect(() => {
+        const fetchQuarters = async () => {
+            setQuartersLoading(true);
+            try {
+                const response = await axios.get('http://localhost:8000/api/quarters');
+                setAvailableQuarters(response.data.quarters);
+            } catch (err) {
+                console.error("Failed to fetch quarters", err);
+            } finally {
+                setQuartersLoading(false);
+            }
+        };
+        fetchQuarters();
+    }, []);
+
     const toggleAccordion = (id: string) => {
         setExpanded(expanded === id ? null : id);
+    };
+
+    const handleQuarterChange = (quarter: string) => {
+        setSelectedQuarters(prev =>
+            prev.includes(quarter)
+                ? prev.filter(q => q !== quarter)
+                : [...prev, quarter]
+        );
     };
 
     const generateReport = async (reportId: string) => {
@@ -54,9 +90,16 @@ const Reports: React.FC = () => {
         setErrors(prev => ({ ...prev, [reportId]: '' }));
 
         try {
-            const response = await axios.post('http://localhost:8000/api/generate', {
-                report_type: reportId
-            });
+            const payload: any = {
+                report_type: reportId,
+                force_regenerate: !!reportImages[reportId] // Force regenerate if image already exists
+            };
+
+            if (reportId === 'county_fuel' && selectedQuarters.length > 0) {
+                payload.quarters = selectedQuarters;
+            }
+
+            const response = await axios.post('http://localhost:8000/api/generate', payload);
 
             if (response.data.images && response.data.images.length > 0) {
                 setReportImages(prev => ({
@@ -134,6 +177,39 @@ const Reports: React.FC = () => {
                                         className="border-t border-gray-100"
                                     >
                                         <div className="p-6 bg-gray-50/50">
+                                            {/* Filters Section */}
+                                            {report.hasFilters && (
+                                                <div className="mb-6 p-4 bg-white rounded-lg border border-gray-200">
+                                                    <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                                                        <Filter className="w-4 h-4" />
+                                                        Filter by Quarter (Optional)
+                                                    </h4>
+                                                    {quartersLoading ? (
+                                                        <div className="text-sm text-gray-400">Loading quarters...</div>
+                                                    ) : (
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {availableQuarters.map(q => (
+                                                                <button
+                                                                    key={q}
+                                                                    onClick={() => handleQuarterChange(q)}
+                                                                    className={`px-3 py-1 text-xs rounded-full border transition-all ${selectedQuarters.includes(q)
+                                                                        ? 'bg-blue-100 border-blue-300 text-blue-700 font-medium'
+                                                                        : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                                                                        }`}
+                                                                >
+                                                                    {q}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    <div className="mt-2 text-xs text-gray-400">
+                                                        {selectedQuarters.length === 0
+                                                            ? "Showing all quarters"
+                                                            : `Selected: ${selectedQuarters.join(', ')}`}
+                                                    </div>
+                                                </div>
+                                            )}
+
                                             {/* Action Bar */}
                                             <div className="flex items-center justify-between mb-6">
                                                 <div className="text-sm text-gray-500">

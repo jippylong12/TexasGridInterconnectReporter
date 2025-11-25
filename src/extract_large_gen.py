@@ -70,6 +70,15 @@ def extract_large_gen_data(file_path: Path) -> pd.DataFrame:
         df.columns = column_names
         df = df.iloc[5:].reset_index(drop=True)
         
+        # Clean Capacity (MW) column
+        if 'Capacity (MW)' in df.columns:
+            # Convert to numeric, coercing errors to NaN
+            df['Capacity (MW)'] = pd.to_numeric(df['Capacity (MW)'], errors='coerce')
+            # Fill NaNs with 0
+            df['Capacity (MW)'] = df['Capacity (MW)'].fillna(0)
+            # Ensure all values are positive (handle negative values like -100 or (100))
+            df['Capacity (MW)'] = df['Capacity (MW)'].abs()
+        
         return df
     except ValueError as e:
         raise ValueError(f"Sheet '{sheet_name}' not found in {file_path}. Error: {e}")

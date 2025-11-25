@@ -12,7 +12,8 @@ from src.reports import (
     generate_county_report,
     generate_cod_quarterly_report,
     generate_fuel_type_report,
-    generate_technology_type_report
+    generate_technology_type_report,
+    generate_county_fuel_report
 )
 
 router = APIRouter()
@@ -26,11 +27,42 @@ INPUTS_DIR = PROJECT_ROOT / "inputs"
 OUTPUTS_DIR = PROJECT_ROOT / "outputs"
 
 import json
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel
 
 class GenerateRequest(BaseModel):
     report_type: str = "all"
+    quarters: Optional[List[str]] = None
+    force_regenerate: bool = False
+
+@router.get("/quarters")
+async def get_quarters():
+    """
+    Returns a list of available quarters from the dataset.
+    """
+    try:
+        # Find input file (reuse logic from generate_reports or extract to helper)
+        input_file = INPUTS_DIR / "10" / "file.xlsx"
+        if not input_file.exists():
+             for p in INPUTS_DIR.glob("*/*.xlsx"):
+                input_file = p
+                break
+        
+        if not input_file.exists():
+             raise HTTPException(status_code=404, detail="No input Excel file found")
+
+        import pandas as pd
+        df = extract_large_gen_data(input_file)
+        
+        # Extract quarters
+        df['Projected COD'] = pd.to_datetime(df['Projected COD'], errors='coerce')
+        df = df[df['Projected COD'].notna()]
+        quarters = sorted(df['Projected COD'].dt.to_period('Q').astype(str).unique())
+        
+        return {"quarters": quarters}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/generate")
 async def generate_reports(request: GenerateRequest = None):
@@ -41,6 +73,8 @@ async def generate_reports(request: GenerateRequest = None):
     try:
         # Handle default if no body provided
         report_type = request.report_type if request else "all"
+        quarters = request.quarters if request else None
+        force_regenerate = request.force_regenerate if request else False
         
         # Ensure output directory exists
         OUTPUTS_DIR.mkdir(exist_ok=True)
@@ -87,6 +121,11 @@ async def generate_reports(request: GenerateRequest = None):
                 "filename": "technology_type_breakdown.png",
                 "func": generate_technology_type_report,
                 "name": "Technology Type Breakdown"
+            },
+            "county_fuel": {
+                "filename": "county_fuel_breakdown.png",
+                "func": generate_county_fuel_report,
+                "name": "County + Fuel Type Breakdown"
             }
         }
 
@@ -121,19 +160,37 @@ async def generate_reports(request: GenerateRequest = None):
             # BUT, if the user explicitly requests generation, maybe they want a refresh?
             # Let's implement a "force" flag later if needed. For now, check existence.
             
-            if file_path.exists() and filename in cache:
-                print(f"Using cached report: {filename}")
-            else:
+            # Cache check logic
+            should_generate = True
+            
+            if file_path.exists() and filename in cache and not force_regenerate:
+                cached_info = cache[filename]
+                # Check if parameters match
+                cached_quarters = cached_info.get("quarters")
+                # If quarters are provided, they must match. If not provided, cached should be None/Empty
+                # Normalize for comparison (sort lists)
+                req_q = sorted(quarters) if quarters else None
+                cached_q = sorted(cached_info.get("quarters")) if cached_info.get("quarters") else None
+                
+                if req_q == cached_q:
+                    print(f"Using cached report: {filename}")
+                    should_generate = False
+            
+            if should_generate:
                 print(f"Generating report: {r_type}")
                 if df is None:
                     df = extract_large_gen_data(input_file)
                 
-                info["func"](df, OUTPUTS_DIR)
+                if r_type == 'county_fuel':
+                    info["func"](df, OUTPUTS_DIR, quarters=quarters)
+                else:
+                    info["func"](df, OUTPUTS_DIR)
                 
                 # Update cache
                 cache[filename] = {
-                    "generated_at": str(input_file.stat().st_mtime), # Using input file mtime as version proxy? Or current time?
-                    "source": str(input_file.name)
+                    "generated_at": str(input_file.stat().st_mtime),
+                    "source": str(input_file.name),
+                    "quarters": quarters
                 }
             
             generated_images.append(f"/outputs/{filename}")
