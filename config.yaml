@@ -1,0 +1,5 @@
+# Google Cloud Platform Configuration
+project_id: "texas-grid-interconnect-report"
+region: "us-central1"
+service_name: "texas-grid-reporter"
+image_name: "texas-grid-reporter"

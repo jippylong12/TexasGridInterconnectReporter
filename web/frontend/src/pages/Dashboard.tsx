@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Zap, BarChart2, FileText, ArrowRight } from 'lucide-react';
+import { Zap, BarChart2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const Dashboard: React.FC = () => {
@@ -39,50 +39,13 @@ const Dashboard: React.FC = () => {
                         <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
-                            onClick={() => navigate('/reports')}
-                            className="px-8 py-4 bg-primary hover:bg-primary/90 text-white rounded-xl font-semibold text-lg shadow-lg shadow-primary/25 flex items-center justify-center gap-2 transition-all"
-                        >
-                            <BarChart2 className="w-5 h-5" />
-                            Generate Reports
-                        </motion.button>
-
-                        <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
                             onClick={() => navigate('/quarter-report')}
                             className="px-8 py-4 bg-accent hover:bg-accent/90 text-white rounded-xl font-semibold text-lg shadow-lg shadow-accent/25 flex items-center justify-center gap-2 transition-all"
                         >
                             <BarChart2 className="w-5 h-5" />
                             Interactive Report
                         </motion.button>
-
-                        <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            className="px-8 py-4 bg-white/10 hover:bg-white/20 text-white rounded-xl font-semibold text-lg backdrop-blur-md border border-white/10 flex items-center justify-center gap-2 transition-all"
-                        >
-                            <FileText className="w-5 h-5" />
-                            Documentation
-                        </motion.button>
                     </div>
-                </motion.div>
-
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.5, duration: 1 }}
-                    className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-5xl"
-                >
-                    {[
-                        { title: 'County Analysis', desc: 'Breakdown of MW capacity by county location.' },
-                        { title: 'COD Timeline', desc: 'Projected Commercial Operation Dates by quarter.' },
-                        { title: 'Fuel & Tech Mix', desc: 'Detailed distribution of fuel and technology types.' },
-                    ].map((item, i) => (
-                        <div key={i} className="p-6 bg-white/5 rounded-2xl border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors">
-                            <h3 className="text-xl font-semibold mb-2 text-primary">{item.title}</h3>
-                            <p className="text-gray-400">{item.desc}</p>
-                        </div>
-                    ))}
                 </motion.div>
             </div>
         </div>
