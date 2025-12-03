@@ -45,6 +45,15 @@ const Dashboard: React.FC = () => {
                             <BarChart2 className="w-5 h-5" />
                             Interactive Report
                         </motion.button>
+                        <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => navigate('/comparison')}
+                            className="px-8 py-4 bg-white/10 hover:bg-white/20 text-white rounded-xl font-semibold text-lg shadow-lg backdrop-blur-sm border border-white/10 flex items-center justify-center gap-2 transition-all"
+                        >
+                            <Zap className="w-5 h-5" />
+                            Comparison View
+                        </motion.button>
                     </div>
                 </motion.div>
             </div>

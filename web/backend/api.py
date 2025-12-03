@@ -5,7 +5,9 @@ from fastapi.responses import FileResponse
 import zipfile
 import os
 from fastapi.staticfiles import StaticFiles
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
+import pandas as pd
+import numpy as np
 
 # Import report generation logic
 # Assuming src is in path (handled in main.py)
@@ -25,39 +27,73 @@ INPUTS_DIR = PROJECT_ROOT / "inputs"
 OUTPUTS_DIR = PROJECT_ROOT / "outputs"
 STATIC_DIR = PROJECT_ROOT / "web" / "frontend" / "dist"
 
-def get_input_file(month: Optional[str] = None) -> Path:
+def get_input_file(year: Optional[str] = None, month: Optional[str] = None) -> Path:
     """
-    Resolves the input file path based on the provided month.
-    If month is None, tries to find the latest month (highest number).
+    Resolves the input file path based on the provided year and month.
+    If year/month are None, tries to find the latest available file.
     """
-    if month:
-        input_file = INPUTS_DIR / month / "file.xlsx"
+    if year and month:
+        input_file = INPUTS_DIR / year / month / "file.xlsx"
         if input_file.exists():
             return input_file
     
-    # If no month specified or specified month not found, find latest
-    # List all subdirectories that are digits
-    month_dirs = [d for d in INPUTS_DIR.iterdir() if d.is_dir() and d.name.isdigit()]
-    if not month_dirs:
+    # If not specified or not found, find latest
+    # 1. Find latest year
+    year_dirs = [d for d in INPUTS_DIR.iterdir() if d.is_dir() and d.name.isdigit()]
+    if not year_dirs:
+        # Fallback for old structure (flat months) - though we moved them
+        month_dirs = [d for d in INPUTS_DIR.iterdir() if d.is_dir() and d.name.isdigit()]
+        if month_dirs:
+             month_dirs.sort(key=lambda x: int(x.name), reverse=True)
+             return month_dirs[0] / "file.xlsx"
         raise HTTPException(status_code=404, detail="No input data directories found")
     
-    # Sort by numeric value descending
-    month_dirs.sort(key=lambda x: int(x.name), reverse=True)
+    year_dirs.sort(key=lambda x: int(x.name), reverse=True)
     
-    for d in month_dirs:
-        input_file = d / "file.xlsx"
-        if input_file.exists():
-            return input_file
+    for y_dir in year_dirs:
+        # 2. Find latest month in this year
+        month_dirs = [d for d in y_dir.iterdir() if d.is_dir() and d.name.isdigit()]
+        month_dirs.sort(key=lambda x: int(x.name), reverse=True)
+        
+        for m_dir in month_dirs:
+            input_file = m_dir / "file.xlsx"
+            if input_file.exists():
+                return input_file
 
     raise HTTPException(status_code=404, detail="No input Excel file found")
 
-@router.get("/months")
-async def get_months():
+@router.get("/years")
+async def get_years():
     """
-    Returns a list of available months (directories) and their display names.
+    Returns a list of available years.
     """
     try:
-        month_dirs = [d for d in INPUTS_DIR.iterdir() if d.is_dir() and d.name.isdigit()]
+        year_dirs = [d for d in INPUTS_DIR.iterdir() if d.is_dir() and d.name.isdigit()]
+        year_dirs.sort(key=lambda x: int(x.name), reverse=True)
+        return {"years": [d.name for d in year_dirs]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/months")
+async def get_months(year: Optional[str] = Query(None)):
+    """
+    Returns a list of available months for a given year.
+    """
+    try:
+        if not year:
+            # If no year provided, try to find latest year
+            year_dirs = [d for d in INPUTS_DIR.iterdir() if d.is_dir() and d.name.isdigit()]
+            if year_dirs:
+                year_dirs.sort(key=lambda x: int(x.name), reverse=True)
+                year = year_dirs[0].name
+            else:
+                return {"months": []}
+
+        year_dir = INPUTS_DIR / year
+        if not year_dir.exists():
+             return {"months": []}
+
+        month_dirs = [d for d in year_dir.iterdir() if d.is_dir() and d.name.isdigit()]
         month_dirs.sort(key=lambda x: int(x.name), reverse=True)
         
         months = []
@@ -90,16 +126,15 @@ from pydantic import BaseModel
 
 
 @router.get("/quarters")
-async def get_quarters(month: Optional[str] = Query(None)):
+async def get_quarters(year: Optional[str] = Query(None), month: Optional[str] = Query(None)):
     """
     Returns a list of available quarters from the dataset.
     """
     try:
         # Find input file
-        input_file = get_input_file(month)
+        input_file = get_input_file(year, month)
         print(f"Using input file: {input_file}")
 
-        import pandas as pd
         df = extract_large_gen_data(input_file)
         
         # Extract quarters
@@ -108,14 +143,14 @@ async def get_quarters(month: Optional[str] = Query(None)):
         quarters = sorted(df['Projected COD'].dt.to_period('Q').astype(str).unique())
         
         # Determine report period based on file path (folder name)
-        # Assuming folder name is month number, and year is current year or 2025
-        report_period = "October 2025" # Default
+        report_period = "Report"
         try:
-            if input_file and input_file.parent.name.isdigit():
+            # Structure: inputs/year/month/file.xlsx
+            if input_file.parent.name.isdigit() and input_file.parent.parent.name.isdigit():
                 month_num = int(input_file.parent.name)
-                import calendar
+                year_num = input_file.parent.parent.name
                 month_name = calendar.month_name[month_num]
-                report_period = f"{month_name} 2025"
+                report_period = f"{month_name} {year_num}"
         except:
             pass
 
@@ -125,15 +160,14 @@ async def get_quarters(month: Optional[str] = Query(None)):
 
 
 @router.get("/quarter-data")
-async def get_quarter_data(quarters: List[str] = Query(None), month: Optional[str] = Query(None)):
+async def get_quarter_data(quarters: List[str] = Query(None), year: Optional[str] = Query(None), month: Optional[str] = Query(None)):
     """
     Returns aggregated data for the Quarter Report dashboard.
     """
     try:
         # Find input file
-        input_file = get_input_file(month)
+        input_file = get_input_file(year, month)
 
-        import pandas as pd
         df = extract_large_gen_data(input_file)
         
         # Filter by quarters
@@ -217,15 +251,14 @@ async def get_quarter_data(quarters: List[str] = Query(None), month: Optional[st
 
 
 @router.get("/county-details")
-async def get_county_details(county: str, quarters: List[str] = Query(None), month: Optional[str] = Query(None)):
+async def get_county_details(county: str, quarters: List[str] = Query(None), year: Optional[str] = Query(None), month: Optional[str] = Query(None)):
     """
     Returns detailed data for a specific county and quarters.
     """
     try:
         # Find input file
-        input_file = get_input_file(month)
+        input_file = get_input_file(year, month)
 
-        import pandas as pd
         df = extract_large_gen_data(input_file)
         
         # Filter by quarters and county
@@ -297,15 +330,14 @@ async def get_county_details(county: str, quarters: List[str] = Query(None), mon
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/county-map-data")
-async def get_county_map_data(quarters: List[str] = Query(None), month: Optional[str] = Query(None)):
+async def get_county_map_data(quarters: List[str] = Query(None), year: Optional[str] = Query(None), month: Optional[str] = Query(None)):
     """
     Returns county-level data optimized for map visualization.
     """
     try:
         # Find input file
-        input_file = get_input_file(month)
+        input_file = get_input_file(year, month)
 
-        import pandas as pd
         df = extract_large_gen_data(input_file)
         
         # Filter by quarters
@@ -353,6 +385,171 @@ async def get_county_map_data(quarters: List[str] = Query(None), month: Optional
         
         return {"counties": county_map_data}
         
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/comparison-data")
+async def get_comparison_data(
+    base_year: str, 
+    base_month: str, 
+    target_year: str, 
+    target_month: str
+):
+    """
+    Compares two report months and returns added projects and updates.
+    """
+    try:
+        base_file = get_input_file(base_year, base_month)
+        target_file = get_input_file(target_year, target_month)
+        
+        df_base = extract_large_gen_data(base_file)
+        df_target = extract_large_gen_data(target_file)
+        
+        # Identify projects by INR (Interconnection Request)
+        # Use 'INR' column as unique identifier
+        if 'INR' not in df_base.columns or 'INR' not in df_target.columns:
+             raise HTTPException(status_code=400, detail="INR column missing in one or both files")
+             
+        # 1. Added Projects
+        # Projects in target but not in base
+        base_inrs = set(df_base['INR'].dropna())
+        target_inrs = set(df_target['INR'].dropna())
+        
+        added_inrs = target_inrs - base_inrs
+        added_projects = df_target[df_target['INR'].isin(added_inrs)].copy()
+        
+        # Normalize Fuel Type
+        def refine_fuel(row):
+            fuel = normalize_fuel_type(row['Fuel'])
+            if fuel in ['Other', 'Unknown']:
+                tech = normalize_technology_type(row['Technology'])
+                if tech != 'Unknown':
+                    return tech
+            return fuel
+
+        added_projects['Fuel_Normalized'] = added_projects.apply(refine_fuel, axis=1)
+        
+        # Format added projects
+        # Include Fuel_Normalized as 'Fuel Type'
+        added_projects['Fuel Type'] = added_projects['Fuel_Normalized']
+        
+        added_projects_list = added_projects.where(pd.notnull(added_projects), None).to_dict(orient='records')
+        
+        # 2. Project Updates
+        # Projects in both
+        common_inrs = base_inrs.intersection(target_inrs)
+        
+        updates_list = []
+        
+        # Create indexed dataframes for faster lookup
+        df_base_indexed = df_base.set_index('INR')
+        df_target_indexed = df_target.set_index('INR')
+        
+        # Columns to check for changes
+        # "Change indicators: Proj Name, MW Size, COD, SFS/NtP, FIS Request"
+        # Map to actual column names (need to verify exact names from extract_large_gen or file)
+        # Based on typical GIS report:
+        # 'Project Name', 'Capacity (MW)', 'Projected COD', 'SFS/NtP', 'FIS Request'
+        # Also check 'Status' (Column L mentioned by user? "Changes from Last Report" is usually a specific column)
+        # User said: "which could include their status from column L which has Changes from Last Report"
+        # Wait, "Changes from Last Report" IS column L in some reports. Or maybe "Status" changed.
+        # User said: "Status Change INA-to-PLN"
+        
+        columns_to_check = [
+            'Project Name', 
+            'Capacity (MW)', 
+            'Projected COD', 
+            # 'SFS/NtP', # Need to check if this column exists, usually it's "SFS" or similar
+            # 'FIS Request' # Need to check exact name
+        ]
+        
+        # Let's check available columns in df_target
+        available_columns = df_target.columns.tolist()
+        
+        # Add dynamic check for columns
+        check_cols = [c for c in columns_to_check if c in available_columns]
+        
+        # Special handling for "Status" or "Changes from Last Report"
+        # If there is a column explicitly named "Changes from Last Report", we should include it.
+        
+        # Helper to check if a value is valid (not NaN, not empty string, not 'nan' string)
+        def is_valid_value(v):
+            if pd.isna(v): return False
+            if str(v).lower() == 'nan': return False
+            if str(v).strip() == '': return False
+            return True
+
+        for inr in common_inrs:
+            base_row = df_base_indexed.loc[inr]
+            target_row = df_target_indexed.loc[inr]
+            
+            changes = []
+            
+            # Check specific columns
+            for col in check_cols:
+                val_base = base_row[col]
+                val_target = target_row[col]
+                
+                # Handle NaN equality - skip if both are invalid
+                if not is_valid_value(val_base) and not is_valid_value(val_target):
+                    continue
+                
+                if val_base != val_target:
+                    changes.append(f"{col}: {val_base} -> {val_target}")
+            
+            # Check Status Change (INA to PLN specifically requested)
+            # Assuming 'Status' column exists (e.g. 'GIM Status' or just 'Status')
+            # Let's look for a status-like column
+            status_col = next((c for c in available_columns if 'Status' in c), None)
+            if status_col:
+                val_base = base_row[status_col]
+                val_target = target_row[status_col]
+                
+                # Skip if both are invalid (e.g. nan -> nan)
+                if is_valid_value(val_base) or is_valid_value(val_target):
+                    if val_base != val_target:
+                        changes.append(f"Status: {val_base} -> {val_target}")
+                    
+            # Check "Changes from Last Report" column if it exists (Column L hint)
+            # It might be named differently after extraction
+            # If it exists, we just include its value if it's not empty
+            change_col = next((c for c in available_columns if 'Change' in c and 'Last' in c), None)
+            if change_col:
+                val_target_change = target_row[change_col]
+                if is_valid_value(val_target_change):
+                     changes.append(f"Reported Change: {val_target_change}")
+
+            if changes:
+                updates_list.append({
+                    "INR": inr,
+                    "Project Name": target_row.get('Project Name', 'N/A'),
+                    "County": target_row.get('County', 'N/A'),
+                    "changes": changes
+                })
+        
+        # Sort Added Projects: 1. COD (Earliest first), 2. County
+        # Ensure COD is datetime for sorting
+        def get_cod_date(x):
+            try:
+                return pd.to_datetime(x.get('Projected COD'), errors='coerce')
+            except:
+                return pd.NaT
+
+        added_projects_list.sort(key=lambda x: (get_cod_date(x) or pd.Timestamp.max, str(x.get('County', '') or '')))
+        
+        # Sort Updates: County
+        updates_list.sort(key=lambda x: str(x.get('County', '') or ''))
+                
+        return {
+            "added_projects": added_projects_list,
+            "updates": updates_list,
+            "base_period": f"{base_month}/{base_year}",
+            "target_period": f"{target_month}/{target_year}"
+        }
+
     except Exception as e:
         import traceback
         traceback.print_exc()
