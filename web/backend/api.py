@@ -5,12 +5,14 @@ from fastapi.responses import FileResponse
 import zipfile
 import os
 from fastapi.staticfiles import StaticFiles
+from typing import Optional, List
 
 # Import report generation logic
 # Assuming src is in path (handled in main.py)
 from src.extract_large_gen import extract_large_gen_data
 
 from src.constants import normalize_fuel_type, normalize_technology_type, FUEL_COLORS
+import calendar
 
 router = APIRouter()
 
@@ -23,6 +25,57 @@ INPUTS_DIR = PROJECT_ROOT / "inputs"
 OUTPUTS_DIR = PROJECT_ROOT / "outputs"
 STATIC_DIR = PROJECT_ROOT / "web" / "frontend" / "dist"
 
+def get_input_file(month: Optional[str] = None) -> Path:
+    """
+    Resolves the input file path based on the provided month.
+    If month is None, tries to find the latest month (highest number).
+    """
+    if month:
+        input_file = INPUTS_DIR / month / "file.xlsx"
+        if input_file.exists():
+            return input_file
+    
+    # If no month specified or specified month not found, find latest
+    # List all subdirectories that are digits
+    month_dirs = [d for d in INPUTS_DIR.iterdir() if d.is_dir() and d.name.isdigit()]
+    if not month_dirs:
+        raise HTTPException(status_code=404, detail="No input data directories found")
+    
+    # Sort by numeric value descending
+    month_dirs.sort(key=lambda x: int(x.name), reverse=True)
+    
+    for d in month_dirs:
+        input_file = d / "file.xlsx"
+        if input_file.exists():
+            return input_file
+
+    raise HTTPException(status_code=404, detail="No input Excel file found")
+
+@router.get("/months")
+async def get_months():
+    """
+    Returns a list of available months (directories) and their display names.
+    """
+    try:
+        month_dirs = [d for d in INPUTS_DIR.iterdir() if d.is_dir() and d.name.isdigit()]
+        month_dirs.sort(key=lambda x: int(x.name), reverse=True)
+        
+        months = []
+        for d in month_dirs:
+            try:
+                month_num = int(d.name)
+                month_name = calendar.month_name[month_num]
+                months.append({
+                    "value": d.name,
+                    "label": f"{month_name}"
+                })
+            except:
+                continue
+                
+        return {"months": months}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Mount static files
 # We will mount it in main.py usually, but since api.py is a router, we might need to do it in main.py.
 # However, the user wants "single Google cloud platform project" and "backend to be serverless".
@@ -30,28 +83,21 @@ STATIC_DIR = PROJECT_ROOT / "web" / "frontend" / "dist"
 # Let's check main.py first to see where the app is defined.
 
 import json
-from typing import Optional, List
+
 from pydantic import BaseModel
 
 
 
 
 @router.get("/quarters")
-async def get_quarters():
+async def get_quarters(month: Optional[str] = Query(None)):
     """
     Returns a list of available quarters from the dataset.
     """
     try:
-        # Find input file (reuse logic from generate_reports or extract to helper)
-        input_file = INPUTS_DIR / "10" / "file.xlsx"
-        print(f"Checking for input file at: {input_file}")
-        if not input_file.exists():
-             for p in INPUTS_DIR.glob("*/*.xlsx"):
-                input_file = p
-                break
-        
-        if not input_file.exists():
-             raise HTTPException(status_code=404, detail="No input Excel file found")
+        # Find input file
+        input_file = get_input_file(month)
+        print(f"Using input file: {input_file}")
 
         import pandas as pd
         df = extract_large_gen_data(input_file)
@@ -79,20 +125,13 @@ async def get_quarters():
 
 
 @router.get("/quarter-data")
-async def get_quarter_data(quarters: List[str] = Query(None)):
+async def get_quarter_data(quarters: List[str] = Query(None), month: Optional[str] = Query(None)):
     """
     Returns aggregated data for the Quarter Report dashboard.
     """
     try:
         # Find input file
-        input_file = INPUTS_DIR / "10" / "file.xlsx"
-        if not input_file.exists():
-             for p in INPUTS_DIR.glob("*/*.xlsx"):
-                input_file = p
-                break
-        
-        if not input_file.exists():
-             raise HTTPException(status_code=404, detail="No input Excel file found")
+        input_file = get_input_file(month)
 
         import pandas as pd
         df = extract_large_gen_data(input_file)
@@ -178,20 +217,13 @@ async def get_quarter_data(quarters: List[str] = Query(None)):
 
 
 @router.get("/county-details")
-async def get_county_details(county: str, quarters: List[str] = Query(None)):
+async def get_county_details(county: str, quarters: List[str] = Query(None), month: Optional[str] = Query(None)):
     """
     Returns detailed data for a specific county and quarters.
     """
     try:
         # Find input file
-        input_file = INPUTS_DIR / "10" / "file.xlsx"
-        if not input_file.exists():
-             for p in INPUTS_DIR.glob("*/*.xlsx"):
-                input_file = p
-                break
-        
-        if not input_file.exists():
-             raise HTTPException(status_code=404, detail="No input Excel file found")
+        input_file = get_input_file(month)
 
         import pandas as pd
         df = extract_large_gen_data(input_file)
@@ -265,20 +297,13 @@ async def get_county_details(county: str, quarters: List[str] = Query(None)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/county-map-data")
-async def get_county_map_data(quarters: List[str] = Query(None)):
+async def get_county_map_data(quarters: List[str] = Query(None), month: Optional[str] = Query(None)):
     """
     Returns county-level data optimized for map visualization.
     """
     try:
         # Find input file
-        input_file = INPUTS_DIR / "10" / "file.xlsx"
-        if not input_file.exists():
-             for p in INPUTS_DIR.glob("*/*.xlsx"):
-                input_file = p
-                break
-        
-        if not input_file.exists():
-             raise HTTPException(status_code=404, detail="No input Excel file found")
+        input_file = get_input_file(month)
 
         import pandas as pd
         df = extract_large_gen_data(input_file)

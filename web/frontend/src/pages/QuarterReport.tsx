@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, Sun, Wind, Battery, Zap, X, ChevronRight, FileText, BarChart2 } from 'lucide-react';
+import { ArrowLeft, Search, Sun, Wind, Battery, Zap, X, ChevronRight, FileText, BarChart2, Calendar } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from 'chart.js';
 import { Pie } from 'react-chartjs-2';
@@ -49,6 +49,11 @@ interface CountyDetails {
     projects: any[];
 }
 
+interface MonthOption {
+    value: string;
+    label: string;
+}
+
 const QuarterReport: React.FC = () => {
     const navigate = useNavigate();
     const [quarters, setQuarters] = useState<string[]>([]);
@@ -61,26 +66,46 @@ const QuarterReport: React.FC = () => {
     const [loadingDetails, setLoadingDetails] = useState<boolean>(false);
     const [mapData, setMapData] = useState<CountyMapData[]>([]);
     const [reportPeriod, setReportPeriod] = useState<string>("");
+    const [months, setMonths] = useState<MonthOption[]>([]);
+    const [selectedMonth, setSelectedMonth] = useState<string>("");
+    const [isMonthDropdownOpen, setIsMonthDropdownOpen] = useState(false);
 
-    // Fetch available quarters on mount
+    // Fetch available months on mount
+    useEffect(() => {
+        const fetchMonths = async () => {
+            try {
+                const response = await axios.get('/api/months');
+                setMonths(response.data.months);
+                if (response.data.months.length > 0) {
+                    setSelectedMonth(response.data.months[0].value);
+                }
+            } catch (error) {
+                console.error("Error fetching months:", error);
+            }
+        };
+        fetchMonths();
+    }, []);
+
+    // Fetch available quarters when month changes
     useEffect(() => {
         const fetchQuarters = async () => {
             try {
-                const response = await axios.get('/api/quarters');
+                const params = new URLSearchParams();
+                if (selectedMonth) params.append('month', selectedMonth);
+
+                const response = await axios.get(`/api/quarters?${params.toString()}`);
                 setQuarters(response.data.quarters);
                 if (response.data.report_period) {
                     setReportPeriod(response.data.report_period);
                 }
-                if (response.data.quarters.length > 0) {
-                    // Default to latest quarter? Or let user choose.
-                    // Let's not auto-select to force user interaction as requested "Quarter selection"
-                }
+                // Clear selected quarters when month changes to avoid invalid selections
+                setSelectedQuarters([]);
             } catch (error) {
                 console.error("Error fetching quarters:", error);
             }
         };
         fetchQuarters();
-    }, []);
+    }, [selectedMonth]);
 
     // Fetch data when selected quarters change
     useEffect(() => {
@@ -96,6 +121,7 @@ const QuarterReport: React.FC = () => {
                 try {
                     const params = new URLSearchParams();
                     selectedQuarters.forEach(q => params.append('quarters', q));
+                    if (selectedMonth) params.append('month', selectedMonth);
 
                     // Fetch both quarter data and map data
                     const [quarterResponse, mapResponse] = await Promise.all([
@@ -115,7 +141,7 @@ const QuarterReport: React.FC = () => {
         }, 1000); // 1 second delay to prevent request spamming
 
         return () => clearTimeout(timer);
-    }, [selectedQuarters]);
+    }, [selectedQuarters, selectedMonth]);
 
     // Fetch county details when county is selected
     useEffect(() => {
@@ -127,6 +153,7 @@ const QuarterReport: React.FC = () => {
                 const params = new URLSearchParams();
                 params.append('county', selectedCounty);
                 selectedQuarters.forEach(q => params.append('quarters', q));
+                if (selectedMonth) params.append('month', selectedMonth);
                 const response = await axios.get(`/api/county-details?${params.toString()}`);
                 setCountyDetails(response.data);
             } catch (error) {
@@ -136,7 +163,7 @@ const QuarterReport: React.FC = () => {
             }
         };
         fetchDetails();
-    }, [selectedCounty, selectedQuarters]);
+    }, [selectedCounty, selectedQuarters, selectedMonth]);
 
     const toggleQuarter = (quarter: string) => {
         setSelectedQuarters(prev =>
@@ -176,71 +203,109 @@ const QuarterReport: React.FC = () => {
                     )}
                 </div>
 
-                {/* Quarter Selector (Multi-select) */}
-                <div className="relative w-full md:w-80">
-                    <div
-                        className="w-full min-h-[48px] pl-3 pr-10 py-2 bg-gray-800 border border-gray-700 rounded-xl focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent cursor-pointer flex flex-wrap gap-2 items-center"
-                        onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                    >
-                        {selectedQuarters.length === 0 && (
-                            <span className="text-gray-500 ml-1">Select Quarters...</span>
-                        )}
-                        {selectedQuarters.length > 0 && selectedQuarters.length === quarters.length ? (
-                            <span className="text-white ml-1 font-medium">All Quarters Selected</span>
-                        ) : selectedQuarters.length > 3 ? (
-                            <span className="text-white ml-1 font-medium">{selectedQuarters.length} Quarters Selected</span>
-                        ) : (
-                            selectedQuarters.map(q => (
-                                <span key={q} className="px-2 py-1 bg-primary/20 text-primary text-sm rounded-md flex items-center gap-1">
-                                    {q}
-                                    <X
-                                        className="w-3 h-3 cursor-pointer hover:text-white"
-                                        onClick={(e) => { e.stopPropagation(); removeQuarter(q); }}
-                                    />
-                                </span>
-                            ))
-                        )}
-                        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                            <Search className="h-5 w-5 text-gray-400" />
+                <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
+                    {/* Month Selector */}
+                    <div className="relative w-full md:w-48">
+                        <div
+                            className="w-full min-h-[48px] px-3 py-2 bg-gray-800 border border-gray-700 rounded-xl focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent cursor-pointer flex items-center justify-between"
+                            onClick={() => setIsMonthDropdownOpen(!isMonthDropdownOpen)}
+                        >
+                            <span className="text-white ml-1 font-medium">
+                                {months.find(m => m.value === selectedMonth)?.label || "Select Month"}
+                            </span>
+                            <Calendar className="h-5 w-5 text-gray-400" />
                         </div>
+
+                        {/* Month Dropdown Menu */}
+                        {isMonthDropdownOpen && (
+                            <div className="absolute top-full left-0 w-full mt-2 bg-gray-800 border border-gray-700 rounded-xl shadow-xl max-h-80 overflow-y-auto z-50">
+                                {months.map(m => (
+                                    <div
+                                        key={m.value}
+                                        className={`px-4 py-3 cursor-pointer hover:bg-gray-700 flex items-center gap-3 ${selectedMonth === m.value ? 'bg-gray-700/50' : ''}`}
+                                        onClick={() => {
+                                            setSelectedMonth(m.value);
+                                            setIsMonthDropdownOpen(false);
+                                        }}
+                                    >
+                                        <span className="text-white">{m.label}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        {/* Backdrop to close dropdown */}
+                        {isMonthDropdownOpen && (
+                            <div className="fixed inset-0 z-40" onClick={() => setIsMonthDropdownOpen(false)} />
+                        )}
                     </div>
 
-                    {/* Dropdown Menu */}
-                    {isDropdownOpen && (
-                        <div className="absolute top-full left-0 w-full mt-2 bg-gray-800 border border-gray-700 rounded-xl shadow-xl max-h-80 overflow-y-auto z-50">
-                            <div className="sticky top-0 bg-gray-800 p-2 border-b border-gray-700 flex gap-2 z-10">
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); setSelectedQuarters([...quarters]); }}
-                                    className="flex-1 px-2 py-1.5 text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 rounded-lg transition-colors"
-                                >
-                                    Select All
-                                </button>
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); setSelectedQuarters([]); }}
-                                    className="flex-1 px-2 py-1.5 text-xs font-medium bg-gray-700 text-gray-300 hover:bg-gray-600 rounded-lg transition-colors"
-                                >
-                                    Deselect All
-                                </button>
+                    {/* Quarter Selector (Multi-select) */}
+                    <div className="relative w-full md:w-80">
+                        <div
+                            className="w-full min-h-[48px] pl-3 pr-10 py-2 bg-gray-800 border border-gray-700 rounded-xl focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent cursor-pointer flex flex-wrap gap-2 items-center"
+                            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                        >
+                            {selectedQuarters.length === 0 && (
+                                <span className="text-gray-500 ml-1">Select Quarters...</span>
+                            )}
+                            {selectedQuarters.length > 0 && selectedQuarters.length === quarters.length ? (
+                                <span className="text-white ml-1 font-medium">All Quarters Selected</span>
+                            ) : selectedQuarters.length > 3 ? (
+                                <span className="text-white ml-1 font-medium">{selectedQuarters.length} Quarters Selected</span>
+                            ) : (
+                                selectedQuarters.map(q => (
+                                    <span key={q} className="px-2 py-1 bg-primary/20 text-primary text-sm rounded-md flex items-center gap-1">
+                                        {q}
+                                        <X
+                                            className="w-3 h-3 cursor-pointer hover:text-white"
+                                            onClick={(e) => { e.stopPropagation(); removeQuarter(q); }}
+                                        />
+                                    </span>
+                                ))
+                            )}
+                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                <Search className="h-5 w-5 text-gray-400" />
                             </div>
-                            {quarters.map(q => (
-                                <div
-                                    key={q}
-                                    className={`px-4 py-3 cursor-pointer hover:bg-gray-700 flex items-center gap-3 ${selectedQuarters.includes(q) ? 'bg-gray-700/50' : ''}`}
-                                    onClick={() => toggleQuarter(q)}
-                                >
-                                    <div className={`w-4 h-4 rounded border flex items-center justify-center ${selectedQuarters.includes(q) ? 'bg-primary border-primary' : 'border-gray-500'}`}>
-                                        {selectedQuarters.includes(q) && <div className="w-2 h-2 bg-white rounded-sm" />}
-                                    </div>
-                                    <span className="text-white">{q}</span>
-                                </div>
-                            ))}
                         </div>
-                    )}
 
-                    {/* Backdrop to close dropdown */}
-                    {isDropdownOpen && (
-                        <div className="fixed inset-0 z-40" onClick={() => setIsDropdownOpen(false)} />
-                    )}
+
+                        {/* Dropdown Menu */}
+                        {isDropdownOpen && (
+                            <div className="absolute top-full left-0 w-full mt-2 bg-gray-800 border border-gray-700 rounded-xl shadow-xl max-h-80 overflow-y-auto z-50">
+                                <div className="sticky top-0 bg-gray-800 p-2 border-b border-gray-700 flex gap-2 z-10">
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setSelectedQuarters([...quarters]); }}
+                                        className="flex-1 px-2 py-1.5 text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 rounded-lg transition-colors"
+                                    >
+                                        Select All
+                                    </button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setSelectedQuarters([]); }}
+                                        className="flex-1 px-2 py-1.5 text-xs font-medium bg-gray-700 text-gray-300 hover:bg-gray-600 rounded-lg transition-colors"
+                                    >
+                                        Deselect All
+                                    </button>
+                                </div>
+                                {quarters.map(q => (
+                                    <div
+                                        key={q}
+                                        className={`px-4 py-3 cursor-pointer hover:bg-gray-700 flex items-center gap-3 ${selectedQuarters.includes(q) ? 'bg-gray-700/50' : ''}`}
+                                        onClick={() => toggleQuarter(q)}
+                                    >
+                                        <div className={`w-4 h-4 rounded border flex items-center justify-center ${selectedQuarters.includes(q) ? 'bg-primary border-primary' : 'border-gray-500'}`}>
+                                            {selectedQuarters.includes(q) && <div className="w-2 h-2 bg-white rounded-sm" />}
+                                        </div>
+                                        <span className="text-white">{q}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Backdrop to close dropdown */}
+                        {isDropdownOpen && (
+                            <div className="fixed inset-0 z-40" onClick={() => setIsDropdownOpen(false)} />
+                        )}
+                    </div>
                 </div>
             </div>
 
