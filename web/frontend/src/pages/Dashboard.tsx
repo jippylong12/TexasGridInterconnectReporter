@@ -55,6 +55,19 @@ const Dashboard: React.FC = () => {
                             Comparison View
                         </motion.button>
                     </div>
+
+                    <div className="pt-16">
+                        <motion.a
+                            href="https://www.jippylong12.xyz/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            className="px-6 py-2 text-gray-400 hover:text-white text-sm font-medium transition-colors inline-block"
+                        >
+                            About Me 👋🏽
+                        </motion.a>
+                    </div>
                 </motion.div>
             </div>
         </div>
