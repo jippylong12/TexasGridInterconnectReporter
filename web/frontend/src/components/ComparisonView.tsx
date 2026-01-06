@@ -220,8 +220,8 @@ const ComparisonView: React.FC = () => {
                                 <button
                                     onClick={() => setActiveTab('added')}
                                     className={`flex-1 py-4 px-6 text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${activeTab === 'added'
-                                            ? 'bg-green-50 text-green-700 border-b-2 border-green-600'
-                                            : 'text-gray-500 hover:bg-gray-50'
+                                        ? 'bg-green-50 text-green-700 border-b-2 border-green-600'
+                                        : 'text-gray-500 hover:bg-gray-50'
                                         }`}
                                 >
                                     <Plus className="w-4 h-4" />
@@ -234,8 +234,8 @@ const ComparisonView: React.FC = () => {
                                 <button
                                     onClick={() => setActiveTab('flagged')}
                                     className={`flex-1 py-4 px-6 text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${activeTab === 'flagged'
-                                            ? 'bg-amber-50 text-amber-700 border-b-2 border-amber-600'
-                                            : 'text-gray-500 hover:bg-gray-50'
+                                        ? 'bg-amber-50 text-amber-700 border-b-2 border-amber-600'
+                                        : 'text-gray-500 hover:bg-gray-50'
                                         }`}
                                 >
                                     <RefreshCw className="w-4 h-4" />
@@ -304,12 +304,13 @@ const ComparisonView: React.FC = () => {
                                                 <th className="px-6 py-3">Project Name</th>
                                                 <th className="px-6 py-3">County</th>
                                                 <th className="px-6 py-3">Change Flag</th>
+                                                <th className="px-6 py-3">New Value</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100">
                                             {comparisonData.flagged_changes.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan={4} className="px-6 py-8 text-center text-gray-500 italic">
+                                                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500 italic">
                                                         No changes flagged in the target report.
                                                     </td>
                                                 </tr>
@@ -323,6 +324,19 @@ const ComparisonView: React.FC = () => {
                                                             <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
                                                                 {item.change_flag}
                                                             </span>
+                                                        </td>
+                                                        <td className="px-6 py-3">
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {item.new_values && item.new_values.length > 0 ? (
+                                                                    item.new_values.map((val: string, idx: number) => (
+                                                                        <span key={idx} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                                                            {val}
+                                                                        </span>
+                                                                    ))
+                                                                ) : (
+                                                                    <span className="text-gray-400 italic">—</span>
+                                                                )}
+                                                            </div>
                                                         </td>
                                                     </tr>
                                                 ))

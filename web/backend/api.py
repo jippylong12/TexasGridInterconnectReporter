@@ -465,11 +465,61 @@ async def get_comparison_data(
             for _, row in df_target.iterrows():
                 change_value = row.get(change_indicator_col)
                 if is_valid_value(change_value):
+                    flag_str = str(change_value).strip()
+                    
+                    # Build a list of new values based on what's flagged
+                    new_values = []
+                    
+                    # Map flag types to their corresponding column values
+                    if 'COD' in flag_str:
+                        cod_val = row.get('Projected COD')
+                        if is_valid_value(cod_val):
+                            # Format datetime nicely
+                            try:
+                                cod_formatted = pd.to_datetime(cod_val).strftime('%Y-%m-%d')
+                            except:
+                                cod_formatted = str(cod_val)
+                            new_values.append(f"New COD: {cod_formatted}")
+                    
+                    if 'MW' in flag_str:
+                        mw_val = row.get('Capacity (MW)')
+                        if is_valid_value(mw_val):
+                            new_values.append(f"New MW: {mw_val}")
+                    
+                    if 'Proj Name' in flag_str:
+                        name_val = row.get('Project Name')
+                        if is_valid_value(name_val):
+                            new_values.append(f"New Name: {name_val}")
+                    
+                    if 'SFS' in flag_str or 'NtP' in flag_str:
+                        # Try to find SFS/NtP related columns
+                        sfs_val = row.get('SFS') or row.get('NtP') or row.get('SFS/NtP')
+                        if is_valid_value(sfs_val):
+                            new_values.append(f"SFS/NtP: {sfs_val}")
+                    
+                    if 'FIS Request' in flag_str:
+                        fis_val = row.get('FIS Requested')
+                        if is_valid_value(fis_val):
+                            try:
+                                fis_formatted = pd.to_datetime(fis_val).strftime('%Y-%m-%d')
+                            except:
+                                fis_formatted = str(fis_val)
+                            new_values.append(f"FIS Requested: {fis_formatted}")
+                    
+                    if 'INA-to-PLN' in flag_str or 'Status' in flag_str:
+                        # Look for status column
+                        status_col = next((c for c in available_columns if 'GIM Study Phase' in c or 'Status' in c), None)
+                        if status_col:
+                            status_val = row.get(status_col)
+                            if is_valid_value(status_val):
+                                new_values.append(f"Status: {status_val}")
+                    
                     flagged_changes_list.append({
                         "INR": row.get('INR', 'N/A'),
                         "Project Name": row.get('Project Name', 'N/A'),
                         "County": row.get('County', 'N/A'),
-                        "change_flag": str(change_value).strip()
+                        "change_flag": flag_str,
+                        "new_values": new_values
                     })
         
         # Sort Added Projects: 1. COD (Earliest first), 2. County
