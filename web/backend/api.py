@@ -438,42 +438,11 @@ async def get_comparison_data(
         
         added_projects_list = added_projects.where(pd.notnull(added_projects), None).to_dict(orient='records')
         
-        # 2. Project Updates
-        # Projects in both
-        common_inrs = base_inrs.intersection(target_inrs)
+        # 2. Flagged Changes from Target Report
+        # Look for the "Change indicators" column in the TARGET report and list any projects
+        # that have a non-empty value. This column flags what changed in that specific report month.
         
-        updates_list = []
-        
-        # Create indexed dataframes for faster lookup
-        df_base_indexed = df_base.set_index('INR')
-        df_target_indexed = df_target.set_index('INR')
-        
-        # Columns to check for changes
-        # "Change indicators: Proj Name, MW Size, COD, SFS/NtP, FIS Request"
-        # Map to actual column names (need to verify exact names from extract_large_gen or file)
-        # Based on typical GIS report:
-        # 'Project Name', 'Capacity (MW)', 'Projected COD', 'SFS/NtP', 'FIS Request'
-        # Also check 'Status' (Column L mentioned by user? "Changes from Last Report" is usually a specific column)
-        # User said: "which could include their status from column L which has Changes from Last Report"
-        # Wait, "Changes from Last Report" IS column L in some reports. Or maybe "Status" changed.
-        # User said: "Status Change INA-to-PLN"
-        
-        columns_to_check = [
-            'Project Name', 
-            'Capacity (MW)', 
-            'Projected COD', 
-            # 'SFS/NtP', # Need to check if this column exists, usually it's "SFS" or similar
-            # 'FIS Request' # Need to check exact name
-        ]
-        
-        # Let's check available columns in df_target
-        available_columns = df_target.columns.tolist()
-        
-        # Add dynamic check for columns
-        check_cols = [c for c in columns_to_check if c in available_columns]
-        
-        # Special handling for "Status" or "Changes from Last Report"
-        # If there is a column explicitly named "Changes from Last Report", we should include it.
+        flagged_changes_list = []
         
         # Helper to check if a value is valid (not NaN, not empty string, not 'nan' string)
         def is_valid_value(v):
@@ -481,54 +450,27 @@ async def get_comparison_data(
             if str(v).lower() == 'nan': return False
             if str(v).strip() == '': return False
             return True
-
-        for inr in common_inrs:
-            base_row = df_base_indexed.loc[inr]
-            target_row = df_target_indexed.loc[inr]
-            
-            changes = []
-            
-            # Check specific columns
-            for col in check_cols:
-                val_base = base_row[col]
-                val_target = target_row[col]
-                
-                # Handle NaN equality - skip if both are invalid
-                if not is_valid_value(val_base) and not is_valid_value(val_target):
-                    continue
-                
-                if val_base != val_target:
-                    changes.append(f"{col}: {val_base} -> {val_target}")
-            
-            # Check Status Change (INA to PLN specifically requested)
-            # Assuming 'Status' column exists (e.g. 'GIM Status' or just 'Status')
-            # Let's look for a status-like column
-            status_col = next((c for c in available_columns if 'Status' in c), None)
-            if status_col:
-                val_base = base_row[status_col]
-                val_target = target_row[status_col]
-                
-                # Skip if both are invalid (e.g. nan -> nan)
-                if is_valid_value(val_base) or is_valid_value(val_target):
-                    if val_base != val_target:
-                        changes.append(f"Status: {val_base} -> {val_target}")
-                    
-            # Check "Changes from Last Report" column if it exists (Column L hint)
-            # It might be named differently after extraction
-            # If it exists, we just include its value if it's not empty
-            change_col = next((c for c in available_columns if 'Change' in c and 'Last' in c), None)
-            if change_col:
-                val_target_change = target_row[change_col]
-                if is_valid_value(val_target_change):
-                     changes.append(f"Reported Change: {val_target_change}")
-
-            if changes:
-                updates_list.append({
-                    "INR": inr,
-                    "Project Name": target_row.get('Project Name', 'N/A'),
-                    "County": target_row.get('County', 'N/A'),
-                    "changes": changes
-                })
+        
+        # Let's check available columns in df_target
+        available_columns = df_target.columns.tolist()
+        
+        # Find the "Change indicators" column (it has a long name with various change types)
+        change_indicator_col = next(
+            (c for c in available_columns if 'Change indicator' in c or 'Change Indicator' in c),
+            None
+        )
+        
+        if change_indicator_col:
+            # Iterate through all target projects and find ones with flagged changes
+            for _, row in df_target.iterrows():
+                change_value = row.get(change_indicator_col)
+                if is_valid_value(change_value):
+                    flagged_changes_list.append({
+                        "INR": row.get('INR', 'N/A'),
+                        "Project Name": row.get('Project Name', 'N/A'),
+                        "County": row.get('County', 'N/A'),
+                        "change_flag": str(change_value).strip()
+                    })
         
         # Sort Added Projects: 1. COD (Earliest first), 2. County
         # Ensure COD is datetime for sorting
@@ -540,12 +482,12 @@ async def get_comparison_data(
 
         added_projects_list.sort(key=lambda x: (get_cod_date(x) or pd.Timestamp.max, str(x.get('County', '') or '')))
         
-        # Sort Updates: County
-        updates_list.sort(key=lambda x: str(x.get('County', '') or ''))
+        # Sort Flagged Changes: County
+        flagged_changes_list.sort(key=lambda x: str(x.get('County', '') or ''))
                 
         return {
             "added_projects": added_projects_list,
-            "updates": updates_list,
+            "flagged_changes": flagged_changes_list,
             "base_period": f"{base_month}/{base_year}",
             "target_period": f"{target_month}/{target_year}"
         }

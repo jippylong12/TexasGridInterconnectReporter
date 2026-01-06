@@ -6,7 +6,7 @@ interface ComparisonData {
     base_period: string;
     target_period: string;
     added_projects: any[];
-    updates: any[];
+    flagged_changes: any[];
 }
 
 // Fuel colors matching QuarterReport
@@ -30,6 +30,7 @@ const ComparisonView: React.FC = () => {
     const [comparisonData, setComparisonData] = useState<ComparisonData | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
+    const [activeTab, setActiveTab] = useState<'added' | 'flagged'>('added');
 
     useEffect(() => {
         fetchYears();
@@ -211,116 +212,125 @@ const ComparisonView: React.FC = () => {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.5 }}
-                        className="space-y-8"
+                        className="space-y-6"
                     >
-                        {/* Added Projects Section */}
+                        {/* Tab Navigation */}
                         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                            <div className="bg-green-50 px-6 py-4 border-b border-green-100 flex justify-between items-center">
-                                <h2 className="text-lg font-semibold text-green-800 flex items-center gap-2">
-                                    <Plus className="w-5 h-5" />
+                            <div className="flex border-b border-gray-200">
+                                <button
+                                    onClick={() => setActiveTab('added')}
+                                    className={`flex-1 py-4 px-6 text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${activeTab === 'added'
+                                            ? 'bg-green-50 text-green-700 border-b-2 border-green-600'
+                                            : 'text-gray-500 hover:bg-gray-50'
+                                        }`}
+                                >
+                                    <Plus className="w-4 h-4" />
                                     Added Projects
-                                    <span className="bg-green-200 text-green-800 text-xs px-2 py-1 rounded-full ml-2">
+                                    <span className={`text-xs px-2 py-0.5 rounded-full ${activeTab === 'added' ? 'bg-green-200 text-green-800' : 'bg-gray-200 text-gray-600'
+                                        }`}>
                                         {comparisonData.added_projects.length}
                                     </span>
-                                </h2>
-                            </div>
-
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left text-sm text-gray-600">
-                                    <thead className="bg-gray-50 text-xs uppercase font-semibold text-gray-500">
-                                        <tr>
-                                            <th className="px-6 py-3">INR</th>
-                                            <th className="px-6 py-3">Project Name</th>
-                                            <th className="px-6 py-3">County</th>
-                                            <th className="px-6 py-3">MW</th>
-                                            <th className="px-6 py-3">Fuel Type</th>
-                                            <th className="px-6 py-3">COD</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-100">
-                                        {comparisonData.added_projects.length === 0 ? (
-                                            <tr>
-                                                <td colSpan={6} className="px-6 py-8 text-center text-gray-500 italic">
-                                                    No new projects found in this period.
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            comparisonData.added_projects.map((proj: any) => (
-                                                <tr key={proj.INR} className="hover:bg-gray-50 transition-colors">
-                                                    <td className="px-6 py-3 font-medium text-gray-900">{proj.INR}</td>
-                                                    <td className="px-6 py-3">{proj['Project Name']}</td>
-                                                    <td className="px-6 py-3">{proj.County}</td>
-                                                    <td className="px-6 py-3">{proj['Capacity (MW)']}</td>
-                                                    <td className="px-6 py-3">
-                                                        <span
-                                                            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white"
-                                                            style={{ backgroundColor: FUEL_COLORS[proj['Fuel Type']] || FUEL_COLORS['Other'] }}
-                                                        >
-                                                            {proj['Fuel Type']}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-6 py-3">{proj['Projected COD']}</td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        {/* Project Updates Section */}
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                            <div className="bg-amber-50 px-6 py-4 border-b border-amber-100 flex justify-between items-center">
-                                <h2 className="text-lg font-semibold text-amber-800 flex items-center gap-2">
-                                    <RefreshCw className="w-5 h-5" />
-                                    Project Updates
-                                    <span className="bg-amber-200 text-amber-800 text-xs px-2 py-1 rounded-full ml-2">
-                                        {comparisonData.updates.length}
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('flagged')}
+                                    className={`flex-1 py-4 px-6 text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${activeTab === 'flagged'
+                                            ? 'bg-amber-50 text-amber-700 border-b-2 border-amber-600'
+                                            : 'text-gray-500 hover:bg-gray-50'
+                                        }`}
+                                >
+                                    <RefreshCw className="w-4 h-4" />
+                                    Flagged Changes
+                                    <span className={`text-xs px-2 py-0.5 rounded-full ${activeTab === 'flagged' ? 'bg-amber-200 text-amber-800' : 'bg-gray-200 text-gray-600'
+                                        }`}>
+                                        {comparisonData.flagged_changes.length}
                                     </span>
-                                </h2>
+                                </button>
                             </div>
 
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left text-sm text-gray-600">
-                                    <thead className="bg-gray-50 text-xs uppercase font-semibold text-gray-500">
-                                        <tr>
-                                            <th className="px-6 py-3">INR</th>
-                                            <th className="px-6 py-3">Project Name</th>
-                                            <th className="px-6 py-3">County</th>
-                                            <th className="px-6 py-3">Changes</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-100">
-                                        {comparisonData.updates.length === 0 ? (
+                            {/* Tab Content */}
+                            {activeTab === 'added' && (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left text-sm text-gray-600">
+                                        <thead className="bg-gray-50 text-xs uppercase font-semibold text-gray-500">
                                             <tr>
-                                                <td colSpan={4} className="px-6 py-8 text-center text-gray-500 italic">
-                                                    No updates found in this period.
-                                                </td>
+                                                <th className="px-6 py-3">INR</th>
+                                                <th className="px-6 py-3">Project Name</th>
+                                                <th className="px-6 py-3">County</th>
+                                                <th className="px-6 py-3">MW</th>
+                                                <th className="px-6 py-3">Fuel Type</th>
+                                                <th className="px-6 py-3">COD</th>
                                             </tr>
-                                        ) : (
-                                            comparisonData.updates.map((update: any) => (
-                                                <tr key={update.INR} className="hover:bg-gray-50 transition-colors">
-                                                    <td className="px-6 py-3 font-medium text-gray-900">{update.INR}</td>
-                                                    <td className="px-6 py-3">{update['Project Name']}</td>
-                                                    <td className="px-6 py-3">{update.County}</td>
-                                                    <td className="px-6 py-3">
-                                                        <div className="flex flex-wrap gap-2">
-                                                            {update.changes.map((change: string, idx: number) => (
-                                                                <span
-                                                                    key={idx}
-                                                                    className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200"
-                                                                >
-                                                                    {change}
-                                                                </span>
-                                                            ))}
-                                                        </div>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100">
+                                            {comparisonData.added_projects.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500 italic">
+                                                        No new projects found in this period.
                                                     </td>
                                                 </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
+                                            ) : (
+                                                comparisonData.added_projects.map((proj: any) => (
+                                                    <tr key={proj.INR} className="hover:bg-gray-50 transition-colors">
+                                                        <td className="px-6 py-3 font-medium text-gray-900">{proj.INR}</td>
+                                                        <td className="px-6 py-3">{proj['Project Name']}</td>
+                                                        <td className="px-6 py-3">{proj.County}</td>
+                                                        <td className="px-6 py-3">{proj['Capacity (MW)']}</td>
+                                                        <td className="px-6 py-3">
+                                                            <span
+                                                                className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white"
+                                                                style={{ backgroundColor: FUEL_COLORS[proj['Fuel Type']] || FUEL_COLORS['Other'] }}
+                                                            >
+                                                                {proj['Fuel Type']}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-6 py-3">{proj['Projected COD']}</td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+
+                            {activeTab === 'flagged' && (
+                                <div className="overflow-x-auto">
+                                    <div className="p-4 bg-amber-50 border-b border-amber-100 text-sm text-amber-800">
+                                        <strong>Note:</strong> These are changes flagged in the <strong>{comparisonData.target_period}</strong> report.
+                                    </div>
+                                    <table className="w-full text-left text-sm text-gray-600">
+                                        <thead className="bg-gray-50 text-xs uppercase font-semibold text-gray-500">
+                                            <tr>
+                                                <th className="px-6 py-3">INR</th>
+                                                <th className="px-6 py-3">Project Name</th>
+                                                <th className="px-6 py-3">County</th>
+                                                <th className="px-6 py-3">Change Flag</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100">
+                                            {comparisonData.flagged_changes.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={4} className="px-6 py-8 text-center text-gray-500 italic">
+                                                        No changes flagged in the target report.
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                comparisonData.flagged_changes.map((item: any) => (
+                                                    <tr key={item.INR} className="hover:bg-gray-50 transition-colors">
+                                                        <td className="px-6 py-3 font-medium text-gray-900">{item.INR}</td>
+                                                        <td className="px-6 py-3">{item['Project Name']}</td>
+                                                        <td className="px-6 py-3">{item.County}</td>
+                                                        <td className="px-6 py-3">
+                                                            <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
+                                                                {item.change_flag}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
                         </div>
                     </motion.div>
                 )}
