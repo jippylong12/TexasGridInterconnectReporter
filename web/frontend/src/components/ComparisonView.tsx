@@ -1,12 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowRight, AlertCircle, Plus, RefreshCw, Calendar } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { ArrowRight, AlertCircle, Plus, RefreshCw, Calendar, ChevronDown, ChevronRight, GitCompare } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+
+interface ColumnChange {
+    column: string;
+    old_value: string;
+    new_value: string;
+}
+
+interface FullComparisonItem {
+    INR: string;
+    "Project Name": string;
+    County: string;
+    change_count: number;
+    changes: ColumnChange[];
+}
 
 interface ComparisonData {
     base_period: string;
     target_period: string;
     added_projects: any[];
     flagged_changes: any[];
+    full_comparison: FullComparisonItem[];
 }
 
 // Fuel colors matching QuarterReport
@@ -30,7 +45,8 @@ const ComparisonView: React.FC = () => {
     const [comparisonData, setComparisonData] = useState<ComparisonData | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'added' | 'flagged'>('added');
+    const [activeTab, setActiveTab] = useState<'added' | 'flagged' | 'all'>('added');
+    const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         fetchYears();
@@ -245,6 +261,20 @@ const ComparisonView: React.FC = () => {
                                         {comparisonData.flagged_changes.length}
                                     </span>
                                 </button>
+                                <button
+                                    onClick={() => setActiveTab('all')}
+                                    className={`flex-1 py-4 px-6 text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${activeTab === 'all'
+                                        ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-600'
+                                        : 'text-gray-500 hover:bg-gray-50'
+                                        }`}
+                                >
+                                    <GitCompare className="w-4 h-4" />
+                                    All Changes
+                                    <span className={`text-xs px-2 py-0.5 rounded-full ${activeTab === 'all' ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-600'
+                                        }`}>
+                                        {comparisonData.full_comparison?.length || 0}
+                                    </span>
+                                </button>
                             </div>
 
                             {/* Tab Content */}
@@ -343,6 +373,94 @@ const ComparisonView: React.FC = () => {
                                             )}
                                         </tbody>
                                     </table>
+                                </div>
+                            )}
+
+                            {activeTab === 'all' && (
+                                <div className="overflow-x-auto">
+                                    <div className="p-4 bg-blue-50 border-b border-blue-100 text-sm text-blue-800">
+                                        <strong>Note:</strong> Full comparison of all columns between <strong>{comparisonData.base_period}</strong> and <strong>{comparisonData.target_period}</strong>.
+                                    </div>
+                                    {comparisonData.full_comparison?.length === 0 ? (
+                                        <div className="px-6 py-8 text-center text-gray-500 italic">
+                                            No field differences found between the two periods.
+                                        </div>
+                                    ) : (
+                                        <div className="divide-y divide-gray-100">
+                                            {comparisonData.full_comparison?.map((item: FullComparisonItem) => {
+                                                const isExpanded = expandedRows.has(item.INR);
+                                                const toggleExpand = () => {
+                                                    const newSet = new Set(expandedRows);
+                                                    if (isExpanded) {
+                                                        newSet.delete(item.INR);
+                                                    } else {
+                                                        newSet.add(item.INR);
+                                                    }
+                                                    setExpandedRows(newSet);
+                                                };
+
+                                                return (
+                                                    <div key={item.INR}>
+                                                        <div
+                                                            onClick={toggleExpand}
+                                                            className="flex items-center px-6 py-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                                                        >
+                                                            <div className="mr-3">
+                                                                {isExpanded ? (
+                                                                    <ChevronDown className="w-5 h-5 text-gray-400" />
+                                                                ) : (
+                                                                    <ChevronRight className="w-5 h-5 text-gray-400" />
+                                                                )}
+                                                            </div>
+                                                            <div className="flex-1 grid grid-cols-4 gap-4 text-sm">
+                                                                <div className="font-medium text-gray-900">{item.INR}</div>
+                                                                <div className="text-gray-600">{item["Project Name"]}</div>
+                                                                <div className="text-gray-600">{item.County}</div>
+                                                                <div>
+                                                                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                                        {item.change_count} change{item.change_count !== 1 ? 's' : ''}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <AnimatePresence>
+                                                            {isExpanded && (
+                                                                <motion.div
+                                                                    initial={{ height: 0, opacity: 0 }}
+                                                                    animate={{ height: 'auto', opacity: 1 }}
+                                                                    exit={{ height: 0, opacity: 0 }}
+                                                                    transition={{ duration: 0.2 }}
+                                                                    className="overflow-hidden"
+                                                                >
+                                                                    <div className="px-6 pb-4 pl-14">
+                                                                        <table className="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
+                                                                            <thead className="bg-gray-100">
+                                                                                <tr>
+                                                                                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Column</th>
+                                                                                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Old Value</th>
+                                                                                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">New Value</th>
+                                                                                </tr>
+                                                                            </thead>
+                                                                            <tbody className="divide-y divide-gray-200">
+                                                                                {item.changes.map((change, idx) => (
+                                                                                    <tr key={idx} className="hover:bg-gray-50">
+                                                                                        <td className="px-4 py-2 font-medium text-gray-700">{change.column}</td>
+                                                                                        <td className="px-4 py-2 text-red-600">{change.old_value}</td>
+                                                                                        <td className="px-4 py-2 text-green-600">{change.new_value}</td>
+                                                                                    </tr>
+                                                                                ))}
+                                                                            </tbody>
+                                                                        </table>
+                                                                    </div>
+                                                                </motion.div>
+                                                            )}
+                                                        </AnimatePresence>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>

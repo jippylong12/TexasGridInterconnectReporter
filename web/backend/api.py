@@ -534,10 +534,88 @@ async def get_comparison_data(
         
         # Sort Flagged Changes: County
         flagged_changes_list.sort(key=lambda x: str(x.get('County', '') or ''))
+        
+        # 3. Full Comparison - Compare ALL columns for common projects
+        full_comparison_list = []
+        
+        # Projects in both base and target
+        common_inrs = base_inrs.intersection(target_inrs)
+        
+        # Create indexed dataframes for faster lookup
+        df_base_indexed = df_base.set_index('INR')
+        df_target_indexed = df_target.set_index('INR')
+        
+        # Columns to skip in comparison (identifiers, metadata)
+        skip_columns = {'INR', 'County'}
+        
+        # Get all columns from target (use as reference)
+        all_columns = [c for c in df_target.columns if c not in skip_columns]
+        
+        for inr in common_inrs:
+            try:
+                base_row = df_base_indexed.loc[inr]
+                target_row = df_target_indexed.loc[inr]
+            except KeyError:
+                continue
+            
+            changes = []
+            
+            for col in all_columns:
+                # Get values from both rows
+                val_base = base_row.get(col) if col in base_row.index else None
+                val_target = target_row.get(col) if col in target_row.index else None
+                
+                # Normalize values for comparison
+                def normalize_val(v):
+                    if pd.isna(v):
+                        return None
+                    s = str(v).strip()
+                    if s.lower() == 'nan' or s == '':
+                        return None
+                    return s
+                
+                norm_base = normalize_val(val_base)
+                norm_target = normalize_val(val_target)
+                
+                # Skip if both are None/empty
+                if norm_base is None and norm_target is None:
+                    continue
+                
+                # Check if values differ
+                if norm_base != norm_target:
+                    # Format datetime values nicely
+                    def format_val(v):
+                        if v is None:
+                            return "(empty)"
+                        try:
+                            dt = pd.to_datetime(v, errors='raise')
+                            return dt.strftime('%Y-%m-%d')
+                        except:
+                            return str(v)
+                    
+                    changes.append({
+                        "column": col,
+                        "old_value": format_val(norm_base),
+                        "new_value": format_val(norm_target)
+                    })
+            
+            # Only include projects with at least one change
+            if changes:
+                full_comparison_list.append({
+                    "INR": inr,
+                    "Project Name": target_row.get('Project Name', 'N/A'),
+                    "County": target_row.get('County', 'N/A'),
+                    "change_count": len(changes),
+                    "changes": changes
+                })
+        
+        # Sort by change count (most changes first), then by County
+        full_comparison_list.sort(key=lambda x: (-x['change_count'], str(x.get('County', '') or '')))
                 
         return {
             "added_projects": added_projects_list,
             "flagged_changes": flagged_changes_list,
+            "full_comparison": full_comparison_list,
             "base_period": f"{base_month}/{base_year}",
             "target_period": f"{target_month}/{target_year}"
         }
