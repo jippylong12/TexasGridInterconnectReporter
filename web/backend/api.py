@@ -545,11 +545,12 @@ async def get_comparison_data(
         df_base_indexed = df_base.set_index('INR')
         df_target_indexed = df_target.set_index('INR')
         
-        # Columns to skip in comparison (identifiers, metadata)
+        # Columns to skip in comparison (identifiers, metadata, already shown in Tab 2)
         skip_columns = {'INR', 'County'}
+        # Also skip any column containing "Change indicator" as it's shown in Tab 2
         
         # Get all columns from target (use as reference)
-        all_columns = [c for c in df_target.columns if c not in skip_columns]
+        all_columns = [c for c in df_target.columns if c not in skip_columns and 'Change indicator' not in c]
         
         for inr in common_inrs:
             try:
@@ -609,8 +610,8 @@ async def get_comparison_data(
                     "changes": changes
                 })
         
-        # Sort by change count (most changes first), then by County
-        full_comparison_list.sort(key=lambda x: (-x['change_count'], str(x.get('County', '') or '')))
+        # Sort by County first, then by change count descending
+        full_comparison_list.sort(key=lambda x: (str(x.get('County', '') or ''), -x['change_count']))
                 
         return {
             "added_projects": added_projects_list,
