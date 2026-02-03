@@ -11,9 +11,9 @@ import numpy as np
 
 # Import report generation logic
 # Assuming src is in path (handled in main.py)
-from src.extract_large_gen import extract_large_gen_data
+from extract_large_gen import extract_large_gen_data
 
-from src.constants import normalize_fuel_type, normalize_technology_type, FUEL_COLORS
+from constants import normalize_fuel_type, normalize_technology_type, FUEL_COLORS
 import calendar
 
 router = APIRouter()
@@ -77,37 +77,51 @@ async def get_years():
 @router.get("/months")
 async def get_months(year: Optional[str] = Query(None)):
     """
-    Returns a list of available months for a given year.
+    Returns a list of available months.
+    - If year is provided, returns months for that year.
+    - If year is not provided, returns all months across years (descending).
     """
     try:
-        if not year:
-            # If no year provided, try to find latest year
-            year_dirs = [d for d in INPUTS_DIR.iterdir() if d.is_dir() and d.name.isdigit()]
-            if year_dirs:
-                year_dirs.sort(key=lambda x: int(x.name), reverse=True)
-                year = year_dirs[0].name
-            else:
+        year_dirs = [d for d in INPUTS_DIR.iterdir() if d.is_dir() and d.name.isdigit()]
+        year_dirs.sort(key=lambda x: int(x.name), reverse=True)
+
+        if year:
+            year_dir = INPUTS_DIR / year
+            if not year_dir.exists():
                 return {"months": []}
 
-        year_dir = INPUTS_DIR / year
-        if not year_dir.exists():
-             return {"months": []}
+            month_dirs = [d for d in year_dir.iterdir() if d.is_dir() and d.name.isdigit()]
+            month_dirs.sort(key=lambda x: int(x.name), reverse=True)
 
-        month_dirs = [d for d in year_dir.iterdir() if d.is_dir() and d.name.isdigit()]
-        month_dirs.sort(key=lambda x: int(x.name), reverse=True)
-        
+            months = []
+            for d in month_dirs:
+                try:
+                    month_num = int(d.name)
+                    month_name = calendar.month_name[month_num]
+                    months.append({"value": d.name, "label": f"{month_name}"})
+                except Exception:
+                    continue
+
+            return {"months": months}
+
+        # No year provided: return all months across years (descending)
+        if not year_dirs:
+            return {"months": []}
+
         months = []
-        for d in month_dirs:
-            try:
-                month_num = int(d.name)
-                month_name = calendar.month_name[month_num]
-                months.append({
-                    "value": d.name,
-                    "label": f"{month_name}"
-                })
-            except:
-                continue
-                
+        for y_dir in year_dirs:
+            month_dirs = [d for d in y_dir.iterdir() if d.is_dir() and d.name.isdigit()]
+            month_dirs.sort(key=lambda x: int(x.name), reverse=True)
+            for d in month_dirs:
+                try:
+                    month_num = int(d.name)
+                    month_name = calendar.month_name[month_num]
+                    value = f"{y_dir.name}-{d.name}"
+                    label = f"{month_name} {y_dir.name}"
+                    months.append({"value": value, "label": label})
+                except Exception:
+                    continue
+
         return {"months": months}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

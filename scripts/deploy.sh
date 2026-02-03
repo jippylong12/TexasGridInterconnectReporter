@@ -6,6 +6,19 @@ set -e
 # Navigate to project root
 cd "$(dirname "$0")/.."
 
+# Verify gcloud project matches expected config
+expected_gcloud_project="texas-grid-interconnect-report"
+current_gcloud_project="$(gcloud config get-value project 2>/dev/null | tr -d '\r')"
+if [ -z "$current_gcloud_project" ]; then
+    echo "Error: Unable to read gcloud config project. Run: gcloud config set project $expected_gcloud_project"
+    exit 1
+fi
+if [ "$current_gcloud_project" != "$expected_gcloud_project" ]; then
+    echo "Error: gcloud project is '$current_gcloud_project' but expected '$expected_gcloud_project'."
+    echo "Run: gcloud config set project $expected_gcloud_project"
+    exit 1
+fi
+
 # Load configuration
 if [ -f "config.yaml" ]; then
     # Simple parser for yaml (assumes simple key: value format)

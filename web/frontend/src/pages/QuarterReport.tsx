@@ -54,6 +54,15 @@ interface MonthOption {
     label: string;
 }
 
+const parseMonthValue = (value: string): { year?: string; month?: string } => {
+    if (!value) return {};
+    if (value.includes("-")) {
+        const [year, month] = value.split("-");
+        return { year, month };
+    }
+    return { month: value };
+};
+
 const QuarterReport: React.FC = () => {
     const navigate = useNavigate();
     const [quarters, setQuarters] = useState<string[]>([]);
@@ -91,7 +100,11 @@ const QuarterReport: React.FC = () => {
         const fetchQuarters = async () => {
             try {
                 const params = new URLSearchParams();
-                if (selectedMonth) params.append('month', selectedMonth);
+                if (selectedMonth) {
+                    const { year, month } = parseMonthValue(selectedMonth);
+                    if (year) params.append('year', year);
+                    if (month) params.append('month', month);
+                }
 
                 const response = await axios.get(`/api/quarters?${params.toString()}`);
                 setQuarters(response.data.quarters);
@@ -121,7 +134,11 @@ const QuarterReport: React.FC = () => {
                 try {
                     const params = new URLSearchParams();
                     selectedQuarters.forEach(q => params.append('quarters', q));
-                    if (selectedMonth) params.append('month', selectedMonth);
+                    if (selectedMonth) {
+                        const { year, month } = parseMonthValue(selectedMonth);
+                        if (year) params.append('year', year);
+                        if (month) params.append('month', month);
+                    }
 
                     // Fetch both quarter data and map data
                     const [quarterResponse, mapResponse] = await Promise.all([
@@ -153,7 +170,11 @@ const QuarterReport: React.FC = () => {
                 const params = new URLSearchParams();
                 params.append('county', selectedCounty);
                 selectedQuarters.forEach(q => params.append('quarters', q));
-                if (selectedMonth) params.append('month', selectedMonth);
+                if (selectedMonth) {
+                    const { year, month } = parseMonthValue(selectedMonth);
+                    if (year) params.append('year', year);
+                    if (month) params.append('month', month);
+                }
                 const response = await axios.get(`/api/county-details?${params.toString()}`);
                 setCountyDetails(response.data);
             } catch (error) {
