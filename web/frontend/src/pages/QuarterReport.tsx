@@ -6,6 +6,7 @@ import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearSca
 import { Pie } from 'react-chartjs-2';
 import axios from 'axios';
 import TexasCountyMap from '../components/TexasCountyMap';
+import { trackEvent } from '../lib/analytics';
 
 // Register ChartJS components
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title);
@@ -187,30 +188,100 @@ const QuarterReport: React.FC = () => {
     }, [selectedCounty, selectedQuarters, selectedMonth]);
 
     const toggleQuarter = (quarter: string) => {
-        setSelectedQuarters(prev =>
-            prev.includes(quarter)
+        setSelectedQuarters(prev => {
+            const exists = prev.includes(quarter);
+            const nextSelection = exists
                 ? prev.filter(q => q !== quarter)
-                : [...prev, quarter]
-        );
+                : [...prev, quarter];
+
+            trackEvent('portfolio_ui_interaction', {
+                action: exists ? 'deselect_quarter' : 'select_quarter',
+                section: 'quarter_report_filters',
+                quarter_id: quarter,
+                selected_quarter_count: nextSelection.length
+            });
+
+            return nextSelection;
+        });
         // Clear drill-down if selection changes
         setSelectedCounty(null);
         setCountyDetails(null);
     };
 
     const removeQuarter = (quarter: string) => {
-        setSelectedQuarters(prev => prev.filter(q => q !== quarter));
+        setSelectedQuarters(prev => {
+            const nextSelection = prev.filter(q => q !== quarter);
+            trackEvent('portfolio_ui_interaction', {
+                action: 'remove_quarter',
+                section: 'quarter_report_filters',
+                quarter_id: quarter,
+                selected_quarter_count: nextSelection.length
+            });
+            return nextSelection;
+        });
         setSelectedCounty(null);
         setCountyDetails(null);
     };
 
+    const handleBackToHomepage = () => {
+        trackEvent('portfolio_ui_interaction', {
+            action: 'navigate_home',
+            section: 'quarter_report_header'
+        });
+        navigate('/');
+    };
+
+    const handleSelectMonth = (monthValue: string) => {
+        trackEvent('portfolio_ui_interaction', {
+            action: 'select_month',
+            section: 'quarter_report_filters',
+            month_id: monthValue
+        });
+        setSelectedMonth(monthValue);
+        setIsMonthDropdownOpen(false);
+    };
+
+    const handleSelectAllQuarters = (event: React.MouseEvent<HTMLButtonElement>) => {
+        event.stopPropagation();
+        setSelectedQuarters([...quarters]);
+        trackEvent('portfolio_ui_interaction', {
+            action: 'select_all_quarters',
+            section: 'quarter_report_filters',
+            selected_quarter_count: quarters.length
+        });
+    };
+
+    const handleDeselectAllQuarters = (event: React.MouseEvent<HTMLButtonElement>) => {
+        event.stopPropagation();
+        setSelectedQuarters([]);
+        trackEvent('portfolio_ui_interaction', {
+            action: 'deselect_all_quarters',
+            section: 'quarter_report_filters',
+            selected_quarter_count: 0
+        });
+    };
+
+    const handleSelectCounty = (county: string, source: 'map' | 'table') => {
+        trackEvent('portfolio_ui_interaction', {
+            action: 'select_county',
+            section: 'quarter_report_county_breakdown',
+            county_id: county,
+            source
+        });
+        setSelectedCounty(county);
+    };
+
     return (
-        <div className="min-h-screen bg-gray-900 text-white p-6 md:p-12">
+        <div className="min-h-screen bg-gray-900 text-white p-6 md:p-12" data-ga-section="quarter_report">
             {/* Header */}
             <div className="max-w-7xl mx-auto mb-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                 <div>
                     <button
-                        onClick={() => navigate('/')}
+                        onClick={handleBackToHomepage}
                         className="flex items-center text-gray-400 hover:text-white mb-2 transition-colors"
+                        data-ga-kind="nav_button"
+                        data-ga-item="homepage"
+                        data-ga-label="Homepage"
                     >
                         <ArrowLeft className="w-4 h-4 mr-2" /> Homepage
                     </button>
@@ -224,7 +295,7 @@ const QuarterReport: React.FC = () => {
                     )}
                 </div>
 
-                <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
+                <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto" data-ga-section="quarter_report_filters">
                     {/* Month Selector */}
                     <div className="relative w-full md:w-48">
                         <div
@@ -244,10 +315,7 @@ const QuarterReport: React.FC = () => {
                                     <div
                                         key={m.value}
                                         className={`px-4 py-3 cursor-pointer hover:bg-gray-700 flex items-center gap-3 ${selectedMonth === m.value ? 'bg-gray-700/50' : ''}`}
-                                        onClick={() => {
-                                            setSelectedMonth(m.value);
-                                            setIsMonthDropdownOpen(false);
-                                        }}
+                                        onClick={() => handleSelectMonth(m.value)}
                                     >
                                         <span className="text-white">{m.label}</span>
                                     </div>
@@ -295,13 +363,13 @@ const QuarterReport: React.FC = () => {
                             <div className="absolute top-full left-0 w-full mt-2 bg-gray-800 border border-gray-700 rounded-xl shadow-xl max-h-80 overflow-y-auto z-50">
                                 <div className="sticky top-0 bg-gray-800 p-2 border-b border-gray-700 flex gap-2 z-10">
                                     <button
-                                        onClick={(e) => { e.stopPropagation(); setSelectedQuarters([...quarters]); }}
+                                        onClick={handleSelectAllQuarters}
                                         className="flex-1 px-2 py-1.5 text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 rounded-lg transition-colors"
                                     >
                                         Select All
                                     </button>
                                     <button
-                                        onClick={(e) => { e.stopPropagation(); setSelectedQuarters([]); }}
+                                        onClick={handleDeselectAllQuarters}
                                         className="flex-1 px-2 py-1.5 text-xs font-medium bg-gray-700 text-gray-300 hover:bg-gray-600 rounded-lg transition-colors"
                                     >
                                         Deselect All
@@ -401,7 +469,7 @@ const QuarterReport: React.FC = () => {
                                 <h3 className="text-lg font-semibold mb-6">Geographic Distribution</h3>
                                 <TexasCountyMap
                                     data={mapData}
-                                    onCountyClick={(county) => setSelectedCounty(county)}
+                                    onCountyClick={(county) => handleSelectCounty(county, 'map')}
                                 />
                             </motion.div>
                         )}
@@ -464,7 +532,7 @@ const QuarterReport: React.FC = () => {
                                             {data.county_data.map((row) => (
                                                 <tr
                                                     key={row.county}
-                                                    onClick={() => setSelectedCounty(row.county)}
+                                                    onClick={() => handleSelectCounty(row.county, 'table')}
                                                     className="hover:bg-gray-700/50 cursor-pointer transition-colors group"
                                                 >
                                                     <td className="p-4 font-medium text-white">{row.county}</td>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowRight, AlertCircle, Plus, RefreshCw, Calendar, ChevronDown, ChevronRight, GitCompare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { trackEvent } from '../lib/analytics';
 
 interface ColumnChange {
     column: string;
@@ -90,6 +91,13 @@ const ComparisonView: React.FC = () => {
             return;
         }
 
+        trackEvent('portfolio_ui_interaction', {
+            action: 'run_comparison',
+            section: 'comparison_filters',
+            base_period_id: `${baseYear}-${baseMonth}`,
+            target_period_id: `${targetYear}-${targetMonth}`
+        });
+
         setLoading(true);
         setError(null);
         try {
@@ -111,8 +119,20 @@ const ComparisonView: React.FC = () => {
         }
     };
 
+    const handleTabChange = (tab: 'added' | 'flagged' | 'all') => {
+        setActiveTab(tab);
+        trackEvent('portfolio_ui_interaction', {
+            action: 'change_comparison_tab',
+            section: 'comparison_results_tabs',
+            tab_id: tab,
+            added_count: comparisonData?.added_projects.length ?? 0,
+            flagged_count: comparisonData?.flagged_changes.length ?? 0,
+            total_change_count: comparisonData?.full_comparison.length ?? 0
+        });
+    };
+
     return (
-        <div className="min-h-screen bg-gray-900 text-white p-6 md:p-12">
+        <div className="min-h-screen bg-gray-900 text-white p-6 md:p-12" data-ga-section="comparison_view">
             <div className="max-w-7xl mx-auto">
                 <div className="mb-8">
                     <h1 className="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent flex items-center gap-3">
@@ -204,6 +224,9 @@ const ComparisonView: React.FC = () => {
                             <button
                                 onClick={handleCompare}
                                 disabled={loading}
+                                data-ga-kind="action_button"
+                                data-ga-item="compare_periods"
+                                data-ga-label="Compare"
                                 className="w-full bg-accent hover:bg-accent/90 text-white font-semibold py-2.5 px-4 rounded-lg shadow-lg shadow-accent/25 transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                             >
                                 {loading ? (
@@ -231,10 +254,10 @@ const ComparisonView: React.FC = () => {
                         className="space-y-6"
                     >
                         {/* Tab Navigation */}
-                        <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
+                        <div className="bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden" data-ga-section="comparison_results_tabs">
                             <div className="flex border-b border-gray-700">
                                 <button
-                                    onClick={() => setActiveTab('added')}
+                                    onClick={() => handleTabChange('added')}
                                     className={`flex-1 py-4 px-6 text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${activeTab === 'added'
                                         ? 'bg-green-900/50 text-green-400 border-b-2 border-green-500'
                                         : 'text-gray-400 hover:bg-gray-700/50'
@@ -248,7 +271,7 @@ const ComparisonView: React.FC = () => {
                                     </span>
                                 </button>
                                 <button
-                                    onClick={() => setActiveTab('flagged')}
+                                    onClick={() => handleTabChange('flagged')}
                                     className={`flex-1 py-4 px-6 text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${activeTab === 'flagged'
                                         ? 'bg-amber-900/50 text-amber-400 border-b-2 border-amber-500'
                                         : 'text-gray-400 hover:bg-gray-700/50'
@@ -262,7 +285,7 @@ const ComparisonView: React.FC = () => {
                                     </span>
                                 </button>
                                 <button
-                                    onClick={() => setActiveTab('all')}
+                                    onClick={() => handleTabChange('all')}
                                     className={`flex-1 py-4 px-6 text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${activeTab === 'all'
                                         ? 'bg-blue-900/50 text-blue-400 border-b-2 border-blue-500'
                                         : 'text-gray-400 hover:bg-gray-700/50'

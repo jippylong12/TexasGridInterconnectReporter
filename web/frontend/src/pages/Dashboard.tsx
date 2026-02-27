@@ -2,12 +2,31 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Zap, BarChart2 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { trackEvent } from '../lib/analytics';
 
 const Dashboard: React.FC = () => {
     const navigate = useNavigate();
 
+    const handleNavigateToQuarterReport = () => {
+        trackEvent('portfolio_ui_interaction', {
+            action: 'navigate_quarter_report',
+            section: 'dashboard',
+            destination: '/quarter-report'
+        });
+        navigate('/quarter-report');
+    };
+
+    const handleNavigateToComparisonView = () => {
+        trackEvent('portfolio_ui_interaction', {
+            action: 'navigate_comparison_view',
+            section: 'dashboard',
+            destination: '/comparison'
+        });
+        navigate('/comparison');
+    };
+
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white overflow-hidden relative">
+        <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white overflow-hidden relative" data-ga-section="dashboard">
             {/* Background Elements */}
             <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0">
                 <div className="absolute top-[-10%] right-[-5%] w-96 h-96 bg-primary/20 rounded-full blur-3xl" />
@@ -39,7 +58,10 @@ const Dashboard: React.FC = () => {
                         <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
-                            onClick={() => navigate('/quarter-report')}
+                            onClick={handleNavigateToQuarterReport}
+                            data-ga-kind="cta_button"
+                            data-ga-item="interactive_report"
+                            data-ga-label="Interactive Report"
                             className="px-8 py-4 bg-accent hover:bg-accent/90 text-white rounded-xl font-semibold text-lg shadow-lg shadow-accent/25 flex items-center justify-center gap-2 transition-all"
                         >
                             <BarChart2 className="w-5 h-5" />
@@ -48,7 +70,10 @@ const Dashboard: React.FC = () => {
                         <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
-                            onClick={() => navigate('/comparison')}
+                            onClick={handleNavigateToComparisonView}
+                            data-ga-kind="cta_button"
+                            data-ga-item="comparison_view"
+                            data-ga-label="Comparison View"
                             className="px-8 py-4 bg-white/10 hover:bg-white/20 text-white rounded-xl font-semibold text-lg shadow-lg backdrop-blur-sm border border-white/10 flex items-center justify-center gap-2 transition-all"
                         >
                             <Zap className="w-5 h-5" />
@@ -61,6 +86,10 @@ const Dashboard: React.FC = () => {
                             href="https://www.jippylong12.xyz/"
                             target="_blank"
                             rel="noopener noreferrer"
+                            data-ga-section="dashboard_footer"
+                            data-ga-kind="external_link"
+                            data-ga-item="about_me"
+                            data-ga-label="About Me"
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             className="px-6 py-2 text-gray-400 hover:text-white text-sm font-medium transition-colors inline-block"
